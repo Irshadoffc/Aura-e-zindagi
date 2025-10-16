@@ -3,6 +3,9 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { GoogleLogin } from "@react-oauth/google";
+import { jwtDecode } from "jwt-decode";
+
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -11,42 +14,106 @@ const LoginPage = () => {
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+ const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (formData.email && formData.password) {
-      toast.success(`✅ Logged in as: ${formData.email}`, {
-        position: "top-center",
-        autoClose: 2000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: false,
-        draggable: true,
-        theme: "dark",
-      });
+  if (!formData.email || !formData.password) {
+    toast.error("⚠ Please enter both email and password.", {
+      position: "top-center",
+      autoClose: 2500,
+      theme: "dark",
+    });
+    return;
+  }
 
-      setTimeout(() => {
-        navigate("/Dashboard");
-      }, 2000);
-    } else {
-      toast.error("⚠ Please enter both email and password.", {
-        position: "top-center",
-        autoClose: 2500,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: false,
-        draggable: true,
-        theme: "dark",
-      });
+  try {
+    const res = await fetch("http://localhost:8000/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || "Invalid credentials");
     }
-  };
 
-  return (
+    toast.success(`✅ Logged in as: ${data.name}`, {
+      position: "top-center",
+      autoClose: 2000,
+      theme: "dark",
+    });
+
+    localStorage.setItem("user", JSON.stringify(data));
+
+    setTimeout(() => navigate("/Dashboard"), 200);
+  } catch (err) {
+    toast.error(`⚠ ${err.message}`, {
+      position: "top-center",
+      autoClose: 2500,
+      theme: "dark",
+    });
+  }
+};
+const handleGoogleLoginSuccess = async (credentialResponse) => {
+  try {
+    if (!credentialResponse?.credential) {
+      throw new Error("No credential received from Google");
+    }
+
+    // Decode JWT to get email and name
+    const decoded = jwtDecode(credentialResponse.credential);
+    const { email, name } = decoded;
+
+    // Call backend API to store/check user
+    const res = await fetch("http://localhost:8000/api/google-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, name }),
+    });
+
+    // ✅ Check if response is JSON before parsing
+    const contentType = res.headers.get("content-type");
+    let data;
+
+    if (contentType && contentType.includes("application/json")) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      throw new Error("Server returned non-JSON response:\n" + text);
+    }
+
+    if (!res.ok) {
+      throw new Error(data.message || "Google login failed on server");
+    }
+
+    // Show toast and store user info from backend
+    toast.success(`✅ Logged in as: ${data.name}`, {
+      position: "top-center",
+      autoClose: 2000,
+      theme: "dark",
+    });
+
+    localStorage.setItem("user", JSON.stringify(data));
+
+    // Redirect to Dashboard
+    navigate("/Dashboard");
+  } catch (err) {
+    console.error("Google Login Error:", err);
+    toast.error(`⚠ ${err.message}`, {
+      position: "top-center",
+      autoClose: 2500,
+      theme: "dark",
+    });
+  }
+};
+
+
+return (
     <div
       className="min-h-screen bg-cover bg-center flex flex-col"
-      style={{
-        backgroundImage: "url('/Images/loginbg.webp')", // 🖼 your background image path
-      }}
+      style={{ backgroundImage: "url('/Images/loginbg.webp')" }}
     >
       <ToastContainer />
 
@@ -54,7 +121,7 @@ const LoginPage = () => {
       <nav className="flex items-center justify-between px-8 py-4 bg-white backdrop-blur-md">
         <div className="flex items-center space-x-3">
           <img
-            src="public/Images/weblogo3.png" // 🖼 your logo path
+            src="public/Images/weblogo3.png"
             alt="Logo"
             className="w-12 h-12 rounded-full shadow-[0_0_15px_rgba(255,215,0,0.4)]"
           />
@@ -67,10 +134,10 @@ const LoginPage = () => {
       {/* 🔐 Login Card */}
       <div className="flex-grow flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-gray-200 shadow-gray-300 p-8 text-gray-400 rounded-3xl relative">
-          {/* 🖼 Logo at Top Center */}
+          {/* 🖼 Logo */}
           <div className="flex justify-center mb-6">
             <img
-              src="/Images/loginlogo.webp" // ✅ your logo path
+              src="/Images/loginlogo.webp"
               alt="Logo"
               className="w-20 h-20 object-contain rounded-full shadow-[0_0_15px_rgba(255,215,0,0.5)]"
             />
@@ -134,6 +201,20 @@ const LoginPage = () => {
               Login
             </button>
           </form>
+
+          {/* 🟢 Google Sign-In */}
+          <div className="mt-6 flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleLoginSuccess}
+              onError={() =>
+                toast.error("⚠ Google login failed.", {
+                  position: "top-center",
+                  autoClose: 2500,
+                  theme: "dark",
+                })
+              }
+            />
+          </div>
         </div>
       </div>
     </div>
