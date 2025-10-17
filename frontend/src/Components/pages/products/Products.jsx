@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ChevronDown,
   Search,
@@ -6,53 +6,11 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
-const products = [
-  {
-    id: 1,
-    image: "/Images/Card-1.webp",
-    name: "mafioso Eau de perfume for men",
-    status: "Active",
-    category: "Eaux de Parfum",
-  },
-  {
-    id: 2,
-    image: "/Images/Card-2.webp",
-    name: "ashbourne Eau de Perfume For men",
-    status: "Active",
-    category: "Eaux de Parfum",
-  },
-  {
-    id: 3,
-    image: "/Images/Card-1.webp",
-    name: "Bella Mia For female",
-    status: "Active",
-    category: "Eaux de Parfum",
-  },
-  {
-    id: 4,
-    image: "/Images/Card-2.webp",
-    name: "Rhea Touched by Bomdshell (Retail $100)",
-    status: "Active",
-    category: "Uncategorized",
-  },
-  {
-    id: 5,
-    image: "/Images/card-3.webp",
-    name: "Bella Mia Perfume for Women",
-    status: "Active",
-    category: "Eaux de Parfum",
-  },
-  {
-    id: 6,
-    image: "/Images/card-3.webp",
-    name: "Tycoon Eau de Parfum for Men",
-    status: "Active",
-    category: "Eaux de Parfum",
-  },
-];
+import api from "../../../api/Axios";
 
 export default function Products() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [sortAsc, setSortAsc] = useState(true);
@@ -60,6 +18,21 @@ export default function Products() {
   const [selectedFilterField, setSelectedFilterField] = useState("Product");
   const [selectedFilterValue, setSelectedFilterValue] = useState("All");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get('/products');
+      setProducts(response.data.products || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter + Sort logic
   const displayedProducts = [...products]
@@ -181,45 +154,72 @@ export default function Products() {
 
       {/* Table Section */}
       <div className="overflow-x-auto bg-white rounded-lg shadow">
-        <table className="w-full text-left text-sm border border-gray-200 min-w-[600px]">
-          <thead className="bg-gray-100 text-gray-700 font-medium border-b border-gray-200">
-            <tr>
-              <th className="p-3 border-r border-gray-200 w-10">
-                <input type="checkbox" />
-              </th>
-              <th className="p-3 border-r border-gray-200">Product</th>
-              <th className="p-3 border-r border-gray-200">Status</th>
-              <th className="p-3">Category</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {displayedProducts.map((p) => (
-              <tr
-                key={p.id}
-                className="border-t border-gray-200 hover:bg-gray-50 transition"
-              >
-                <td className="p-3 border-r border-gray-200 w-10">
+        {loading ? (
+          <div className="p-8 text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <p className="mt-2 text-gray-600">Loading products...</p>
+          </div>
+        ) : (
+          <table className="w-full text-left text-sm border border-gray-200 min-w-[600px]">
+            <thead className="bg-gray-100 text-gray-700 font-medium border-b border-gray-200">
+              <tr>
+                <th className="p-3 border-r border-gray-200 w-10">
                   <input type="checkbox" />
-                </td>
-                <td className="p-3 flex items-center space-x-3 border-r border-gray-200">
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    className="w-10 h-10 rounded object-cover"
-                  />
-                  <span className="text-sm sm:text-base">{p.name}</span>
-                </td>
-                <td className="p-3 border-r border-gray-200">
-                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
-                    {p.status}
-                  </span>
-                </td>
-                <td className="p-3">{p.category}</td>
+                </th>
+                <th className="p-3 border-r border-gray-200">Product</th>
+                <th className="p-3 border-r border-gray-200">Brand</th>
+                <th className="p-3 border-r border-gray-200">Price</th>
+                <th className="p-3 border-r border-gray-200">Stock</th>
+                <th className="p-3 border-r border-gray-200">Status</th>
+                <th className="p-3">Category</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {displayedProducts.length > 0 ? displayedProducts.map((p) => (
+                <tr
+                  key={p.id}
+                  className="border-t border-gray-200 hover:bg-gray-50 transition"
+                >
+                  <td className="p-3 border-r border-gray-200 w-10">
+                    <input type="checkbox" />
+                  </td>
+                  <td className="p-3 flex items-center space-x-3 border-r border-gray-200">
+                    <img
+                      src={p.image ? 
+                        (p.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${p.image}` : `/${p.image}`) 
+                        : '/Images/Card-1.webp'
+                      }
+                      alt={p.name}
+                      className="w-10 h-10 rounded object-cover"
+                      onError={(e) => {
+                        e.target.src = '/Images/Card-1.webp';
+                      }}
+                    />
+                    <span className="text-sm sm:text-base">{p.name}</span>
+                  </td>
+                  <td className="p-3 border-r border-gray-200">{p.brand_name}</td>
+                  <td className="p-3 border-r border-gray-200">${p.price}</td>
+                  <td className="p-3 border-r border-gray-200">{p.stock_quantity}</td>
+                  <td className="p-3 border-r border-gray-200">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {p.status}
+                    </span>
+                  </td>
+                  <td className="p-3">{p.category}</td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan="7" className="p-8 text-center text-gray-500">
+                    No products found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

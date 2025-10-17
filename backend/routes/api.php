@@ -1,11 +1,16 @@
 <?php
 use App\Http\Controllers\Api\LoginController;
+use App\Http\Controllers\Api\ProductController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Public routes (no authentication required)
 Route::post('/login', [LoginController::class, 'login']);
 Route::post('/google-login', [LoginController::class, 'handleGoogleLogin']);
+
+// Public product routes (no authentication required)
+Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/{product}', [ProductController::class, 'show']);
 
 // Protected routes (authentication required)
 Route::middleware('auth:sanctum')->group(function () {
@@ -22,12 +27,7 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Product management routes (admin only)
     Route::middleware('role:admin')->group(function () {
-        Route::get('/admin/products', function () {
-            return response()->json(['message' => 'Admin products']);
-        });
-        Route::post('/admin/products', function () {
-            return response()->json(['message' => 'Product created']);
-        });
+        Route::apiResource('products', ProductController::class);
         Route::get('/admin/orders', function () {
             return response()->json(['message' => 'Admin orders']);
         });
@@ -35,6 +35,8 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json(['message' => 'Admin customers']);
         });
     });
+    
+
     
     // User-specific routes
     Route::get('/orders', function (Request $request) {

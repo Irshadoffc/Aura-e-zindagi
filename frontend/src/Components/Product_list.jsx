@@ -1,17 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, ArrowUpRight, SlidersHorizontal, ArrowUpDown } from "lucide-react";
-
-const products = [
-  { id: 1, image: "/Images/Card-1.webp", title: "Leather Watch", category: "For Him", price: "Rs 1,500", rating: 4.5 },
-  { id: 2, image: "/Images/Card-2.webp", title: "Handbag", category: "For Her", price: "Rs 2,200", rating: 5 },
-  { id: 3, image: "/Images/card-3.webp", title: "Perfume", category: "Unisex", price: "Rs 999", rating: 4 },
-  { id: 4, image: "/Images/WhatsApp Image 2025-07-08 at 11.12.23 PM.webp", title: "Wallet", category: "For Him", price: "Rs 750", rating: 4.2 },
-  { id: 5, image: "/Images/WhatsApp Image 2025-07-08 at 11.13.28 PM.webp", title: "Sunglasses", category: "For Her", price: "Rs 1,250", rating: 4.8 },
-  { id: 6, image: "/Images/WhatsApp Image 2025-07-08 at 11.13.39 PM.webp", title: "Necklace", category: "Unisex", price: "Rs 1,800", rating: 5 },
-];
+import api from "../api/Axios";
 
 const ProductList = () => {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -20,6 +14,33 @@ const ProductList = () => {
   const navigate = useNavigate();
   const filterRef = useRef(null);
   const sortRef = useRef(null);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get('/products');
+      const apiProducts = response.data.products || [];
+      // Transform API data to match component structure
+      const transformedProducts = apiProducts.map(product => ({
+        id: product.id,
+        image: product.image ? 
+          (product.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${product.image}` : `/${product.image}`) 
+          : '/Images/Card-1.webp',
+        title: product.name,
+        category: product.category === 'mens' ? 'For Him' : product.category === 'womens' ? 'For Her' : 'Unisex',
+        price: `$${product.price}`,
+        rating: 4.5 // Default rating since not in database
+      }));
+      setProducts(transformedProducts);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ✅ Close dropdown when clicking outside
   useEffect(() => {
@@ -43,14 +64,25 @@ const ProductList = () => {
 
   // ✅ Sorting logic
   const sortedProducts = [...filteredProducts].sort((a, b) => {
-    const priceA = Number(a.price.replace(/[^0-9]/g, ""));
-    const priceB = Number(b.price.replace(/[^0-9]/g, ""));
+    const priceA = Number(a.price.replace(/[^0-9.]/g, ""));
+    const priceB = Number(b.price.replace(/[^0-9.]/g, ""));
     if (sortType === "lowToHigh") return priceA - priceB;
     if (sortType === "highToLow") return priceB - priceA;
     return 0;
   });
 
-  const visibleProducts = sortedProducts.slice(0, 4);
+  const visibleProducts = sortedProducts;
+
+  if (loading) {
+    return (
+      <div className="flex bg-gray-100 h-full w-full justify-center items-center px-0 md:px-2 sm:p-6 sm:px-6">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <p className="mt-2 text-gray-600">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
 
   // ✅ Product navigation
   const handleCardClick = (product) => {
@@ -176,6 +208,9 @@ const ProductList = () => {
                 src={p.image}
                 alt={p.title}
                 className="w-full h-[240px] sm:h-[300px] md:h-[380px] object-cover"
+                onError={(e) => {
+                  e.target.src = '/Images/Card-1.webp';
+                }}
               />
 
               <div className="absolute top-2 left-2 flex items-center text-yellow-400 bg-black/40 px-2 py-0.5 rounded-full text-xs sm:text-sm">

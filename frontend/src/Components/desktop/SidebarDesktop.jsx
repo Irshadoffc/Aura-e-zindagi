@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart2,
   Home,
@@ -17,6 +18,7 @@ import {
   ShoppingBasket,
   UserRound,
 } from "lucide-react";
+import api from "../../api/Axios";
 import DeskHomePage from "./home/DeskHomePage";
 import Orders from "../pages/Orders/Orders";
 import Products from "../pages/Products/Products";
@@ -24,6 +26,7 @@ import Collections from "../pages/Products/Collections";
 import CustomersDesktop from "./customer/CustomersDesktop";
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [activeItem, setActiveItem] = useState("overview");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [ordersOpen, setOrdersOpen] = useState(false);
@@ -39,6 +42,19 @@ const AdminDashboard = () => {
   }, []);
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear local storage and redirect
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/login');
+    }
+  };
 
   // ----------- Page Rendering -----------
   const renderContent = () => {
@@ -226,7 +242,8 @@ const AdminDashboard = () => {
           <div className="mt-auto p-3 border-t border-gray-200">
             <button
               type="button"
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 transition"
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 transition cursor-pointer"
             >
               <LogOut className="size-4 shrink-0" />
               <span className="font-medium">Sign Out</span>

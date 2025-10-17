@@ -4,58 +4,32 @@ import Footer from "./Footer";
 import Navbar from "./Navbar";
 import { useNavigate } from "react-router-dom";
 import SocialMediaToggle from "./Socialmedia";
-
-const productsData = [
-  {
-    id: "1",
-    name: "ARTISTIC FLUID MODERN CHAIR",
-    price: 5299,
-    rating: 4.2,
-    image: "/Images/Card-1.webp",
-    description:
-      "A beautifully designed modern chair perfect for living rooms or offices.",
-  },
-  {
-    id: "2",
-    name: "FUTURISTIC BLACK LEATHER SEAT CHAIR",
-    price: 7099,
-    rating: 4.4,
-    image: "/Images/Card-2.webp",
-    description: "Luxury black leather chair offering comfort and durability.",
-  },
-  {
-    id: "3",
-    name: "MODERN MARBLED CURVE CHAIR",
-    price: 9099,
-    rating: 4.8,
-    image: "/Images/Card-2.webp",
-    description:
-      "Elegant marbled finish chair with a smooth curved back design.",
-  },
-  {
-    id: "4",
-    name: "ARTISTIC WOOD TEXTURED CHAIR",
-    price: 10499,
-    rating: 4.6,
-    image: "/Images/Card-1.webp",
-    description:
-      "Premium wooden chair with an artistic texture for a timeless appeal.",
-  },
-  {
-    id: "5",
-    name: "CLASSIC LINEN ARMCHAIR",
-    price: 8299,
-    rating: 4.3,
-    image: "/Images/Card-1.webp",
-    description: "A soft, elegant armchair crafted from fine linen fabric.",
-  },
-];
+import api from "../api/Axios";
 
 export default function Mens() {
   const navigate = useNavigate();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [sortDropdown, setSortDropdown] = useState(false);
   const [sortType, setSortType] = useState("");
   const sortRef = useRef(null);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get('/products');
+      const allProducts = response.data.products || [];
+      const mensProducts = allProducts.filter(p => p.category === 'mens');
+      setProducts(mensProducts);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -68,10 +42,9 @@ export default function Mens() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Sort products
-  const sortedProducts = [...productsData].sort((a, b) => {
-    if (sortType === "lowToHigh") return a.price - b.price;
-    if (sortType === "highToLow") return b.price - a.price;
+  const sortedProducts = [...products].sort((a, b) => {
+    if (sortType === "lowToHigh") return parseFloat(a.price) - parseFloat(b.price);
+    if (sortType === "highToLow") return parseFloat(b.price) - parseFloat(a.price);
     return 0;
   });
 
@@ -94,7 +67,7 @@ export default function Mens() {
                 Top Selling Men Items
               </h2>
               <p className="text-gray-500 text-xs sm:text-sm">
-                {productsData.length} Products
+                {products.length} Products
               </p>
             </div>
 
@@ -139,22 +112,31 @@ export default function Mens() {
           </div>
 
           {/* Product Cards */}
-          <div className="grid grid-cols-2 rounded-4xl md:grid-cols-4 gap-4 sm:gap-4">
-            {sortedProducts.map((p) => (
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <p className="mt-2 text-gray-600">Loading products...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 rounded-4xl md:grid-cols-4 gap-4 sm:gap-4">
+              {sortedProducts.map((p) => (
               <div
                 key={p.id}
                 onClick={() => handleCardClick(p)}
                 className="relative bg-white rounded-2xl sm:rounded-4xl shadow-md overflow-hidden transition-transform duration-300 hover:scale-105 hover:shadow-xl cursor-pointer"
               >
                 <img
-                  src={p.image}
+                  src={p.image ? 
+                    (p.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${p.image}` : `/${p.image}`) 
+                    : '/Images/Card-1.webp'
+                  }
                   alt={p.name}
                   className="w-full h-[250px] sm:h-[320px] md:h-[420px] object-cover"
                 />
 
                 {/* Rating */}
                 <div className="absolute top-2 left-2 flex items-center text-yellow-400 bg-black/40 px-2 py-0.5 rounded-full text-xs sm:text-sm">
-                  ⭐ {p.rating}
+                  ⭐ 4.5
                 </div>
 
                 {/* Product Info */}
@@ -177,8 +159,9 @@ export default function Mens() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -9,56 +9,32 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 import { useNavigate } from "react-router-dom";
 import SocialMediaToggle from "./Socialmedia";
-
-const productsData = [
-  {
-    id: "1",
-    name: "MODERN UNISEX CHAIR",
-    price: 6499,
-    rating: 4.3,
-    image: "/Images/Card-1.webp",
-    description: "Stylish chair suitable for both men and women, with modern design.",
-  },
-  {
-    id: "2",
-    name: "CLASSIC UNISEX SEAT",
-    price: 7599,
-    rating: 4.5,
-    image: "/Images/Card-2.webp",
-    description: "Comfortable unisex seat with elegant design for any interior.",
-  },
-  {
-    id: "3",
-    name: "ELEGANT UNISEX ARMCHAIR",
-    price: 8999,
-    rating: 4.7,
-    image: "/Images/card-3.webp",
-    description: "Elegant armchair that fits perfectly in modern homes for everyone.",
-  },
-  {
-    id: "4",
-    name: "FUTURISTIC UNISEX CHAIR",
-    price: 9999,
-    rating: 4.6,
-    image: "/Images/Card-2.webp",
-    description: "Futuristic unisex chair combining style and comfort.",
-  },
-  {
-    id: "5",
-    name: "CREAM UNISEX LOUNGE CHAIR",
-    price: 8499,
-    rating: 4.4,
-    image: "/Images/card-3.webp",
-    description: "Soft cream lounge chair suitable for all genders with premium comfort.",
-  },
-];
+import api from "../api/Axios";
 
 export default function Unisex() {
   const navigate = useNavigate();
-
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [sortDropdown, setSortDropdown] = useState(false);
-  const [sortType, setSortType] = useState(""); // "" | "lowToHigh" | "highToLow"
+  const [sortType, setSortType] = useState("");
   const sortRef = useRef(null);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get('/products');
+      const allProducts = response.data.products || [];
+      const unisexProducts = allProducts.filter(p => p.category === 'unisex');
+      setProducts(unisexProducts);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Close dropdown when clicked outside
   useEffect(() => {
@@ -71,9 +47,9 @@ export default function Unisex() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const sortedProducts = [...productsData].sort((a, b) => {
-    if (sortType === "lowToHigh") return a.price - b.price;
-    if (sortType === "highToLow") return b.price - a.price;
+  const sortedProducts = [...products].sort((a, b) => {
+    if (sortType === "lowToHigh") return parseFloat(a.price) - parseFloat(b.price);
+    if (sortType === "highToLow") return parseFloat(b.price) - parseFloat(a.price);
     return 0;
   });
 
@@ -92,7 +68,7 @@ export default function Unisex() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <div className="ml-6 mt-4">
               <h2 className="text-lg sm:text-xl font-semibold">Top Selling Unisex Items</h2>
-              <p className="text-gray-500 text-xs sm:text-sm">{productsData.length} Products</p>
+              <p className="text-gray-500 text-xs sm:text-sm">{products.length} Products</p>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap relative">
 
@@ -137,21 +113,30 @@ export default function Unisex() {
           </div>
 
           {/* Product Cards Grid */}
-          <div className="grid grid-cols-2 rounded-4xl  md:grid-cols-4 gap-4  sm:gap-4">
-            {sortedProducts.map((p) => (
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <p className="mt-2 text-gray-600">Loading products...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 rounded-4xl  md:grid-cols-4 gap-4  sm:gap-4">
+              {sortedProducts.map((p) => (
               <div
                 key={p.id}
                 onClick={() => handleCardClick(p)}
                 className="relative bg-white rounded-2xl sm:rounded-4xl shadow-md overflow-hidden transition-transform duration-300 hover:scale-105 hover:shadow-xl cursor-pointer"
               >
                 <img
-                  src={p.image}
+                  src={p.image ? 
+                    (p.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${p.image}` : `/${p.image}`) 
+                    : '/Images/Card-1.webp'
+                  }
                   alt={p.name}
                   className="w-full h-[250px] sm:h-[320px] md:h-[420px] object-cover"
                 />
 
                 <div className="absolute top-2 left-2 flex items-center text-yellow-400 bg-black/40 px-2 py-0.5 rounded-full text-xs sm:text-sm">
-                  ⭐ {p.rating}
+                  ⭐ 4.5
                 </div>
 
                 <div className="absolute top-12 sm:top-14 left-2 sm:left-3 text-white drop-shadow max-w-[80%]">
@@ -170,8 +155,9 @@ export default function Unisex() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

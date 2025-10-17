@@ -1,8 +1,126 @@
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import api from "../../../api/Axios";
 
 const AddProduct = () => {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    brand_name: '',
+    category: 'mens',
+    fragrance_type: 'EDP',
+    notes: '',
+    original_price: '',
+    price: '',
+    discount_percentage: 0,
+    stock_quantity: '',
+    minimum_stock: 10
+  });
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const updatedData = { ...formData, [name]: value };
+    
+    // Auto-calculate price when original_price or discount changes
+    if (name === 'original_price' || name === 'discount_percentage') {
+      const originalPrice = name === 'original_price' ? parseFloat(value) : parseFloat(formData.original_price);
+      const discount = name === 'discount_percentage' ? parseFloat(value) : parseFloat(formData.discount_percentage);
+      
+      if (originalPrice && discount >= 0) {
+        const discountedPrice = originalPrice - (originalPrice * discount / 100);
+        updatedData.price = discountedPrice.toFixed(2);
+      }
+    }
+    
+    setFormData(updatedData);
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const formDataToSend = new FormData();
+      
+      // Append all form fields
+      Object.keys(formData).forEach(key => {
+        formDataToSend.append(key, formData[key]);
+      });
+      
+      // Append image if selected
+      if (selectedImage) {
+        formDataToSend.append('image', selectedImage);
+      }
+
+      const response = await api.post('/products', formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      toast.success('Product created successfully!', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      
+      // Reset form
+      setFormData({
+        name: '',
+        description: '',
+        brand_name: '',
+        category: 'mens',
+        fragrance_type: 'EDP',
+        notes: '',
+        original_price: '',
+        price: '',
+        discount_percentage: 0,
+        stock_quantity: '',
+        minimum_stock: 10
+      });
+      setSelectedImage(null);
+      setImagePreview(null);
+      
+      // Redirect to products page after 2 seconds
+      setTimeout(() => {
+        navigate('/products');
+      }, 2000);
+      
+    } catch (error) {
+      const message = error.response?.data?.message || 'Failed to create product';
+      toast.error(message, {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-gray-50 p-8">
+      <ToastContainer />
       {/* Breadcrumb */}
       <div className="text-sm text-gray-500 mb-6">
         <span className="hover:text-gray-700 cursor-pointer">Products</span> /
@@ -18,6 +136,7 @@ const AddProduct = () => {
       </p>
 
       {/* Main Grid */}
+      <form onSubmit={handleSubmit}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT SIDE (Main Info) */}
         <div className="lg:col-span-2 space-y-6">
@@ -32,8 +151,12 @@ const AddProduct = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="Luxury Oud Eau De Parfum"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Enter perfume name (e.g., Chanel No. 5)"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
                 />
               </div>
 
@@ -43,7 +166,10 @@ const AddProduct = () => {
                 </label>
                 <textarea
                   rows="6"
-                  placeholder="Write a short description about the perfume..."
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Describe the perfume's scent, longevity, and unique features..."
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 ></textarea>
               </div>
@@ -58,10 +184,16 @@ const AddProduct = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Perfume Category
                 </label>
-                <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                  <option>Men's Perfume</option>
-                  <option>Women's Perfume</option>
-                  <option>Unisex Perfume</option>
+                <select 
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="mens">Men's Perfume</option>
+                  <option value="womens">Women's Perfume</option>
+                  <option value="unisex">Unisex Perfume</option>
+                  <option value="special_offer">Special Offer</option>
                 </select>
               </div>
 
@@ -69,16 +201,16 @@ const AddProduct = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Perfume Volume (ml)
                 </label>
-                <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                  <option>25 ml</option>
-                  <option>30 ml</option>
-                  <option>50 ml</option>
-                  <option>75 ml</option>
-                  <option>90 ml</option>
-                  <option>100 ml</option>
-                  <option>120 ml</option>
-                  <option>150 ml</option>
-                  <option>200 ml</option>
+                <select 
+                  name="fragrance_type"
+                  value={formData.fragrance_type}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="EDP">Eau de Parfum (EDP)</option>
+                  <option value="EDT">Eau de Toilette (EDT)</option>
+                  <option value="EDC">Eau de Cologne (EDC)</option>
+                  <option value="Oil">Perfume Oil</option>
                 </select>
               </div>
             </div>
@@ -93,9 +225,13 @@ const AddProduct = () => {
                   Stock Keeping Unit
                 </label>
                 <input
-                  type="text"
-                  placeholder="SKU-PFM-001"
+                  type="number"
+                  name="stock_quantity"
+                  value={formData.stock_quantity}
+                  onChange={handleChange}
+                  placeholder="Enter available quantity (e.g., 100)"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
                 />
               </div>
               <div>
@@ -104,7 +240,10 @@ const AddProduct = () => {
                 </label>
                 <input
                   type="number"
-                  placeholder="500"
+                  name="minimum_stock"
+                  value={formData.minimum_stock}
+                  onChange={handleChange}
+                  placeholder="Minimum stock alert level (e.g., 5)"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
@@ -113,9 +252,13 @@ const AddProduct = () => {
                   Minimum Stock
                 </label>
                 <input
-                  type="number"
-                  placeholder="10"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  type="text"
+                  name="brand_name"
+                  value={formData.brand_name}
+                  onChange={handleChange}
+                  placeholder="Enter brand name (e.g., Chanel, Dior)"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
                 />
               </div>
             </div>
@@ -134,7 +277,10 @@ const AddProduct = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="Dior"
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  placeholder="Enter brand name (e.g., Chanel, Dior)"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
@@ -153,12 +299,17 @@ const AddProduct = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
+                  Original Price
                 </label>
                 <input
-                  type="text"
-                  placeholder="Oud, Musk, Amber"
+                  type="number"
+                  name="original_price"
+                  value={formData.original_price || ''}
+                  onChange={handleChange}
+                  placeholder="Enter original price (e.g., 100.00)"
+                  step="0.01"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
                 />
               </div>
             </div>
@@ -170,21 +321,30 @@ const AddProduct = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price
+                  Final Price (Auto-calculated)
                 </label>
                 <input
-                  type="text"
-                  placeholder="$120.00"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  type="number"
+                  name="price"
+                  value={formData.price}
+                  placeholder="Auto-calculated price"
+                  step="0.01"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-100 cursor-not-allowed"
+                  readOnly
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Discount
+                  Discount %
                 </label>
                 <input
-                  type="text"
-                  placeholder="15%"
+                  type="number"
+                  name="discount_percentage"
+                  value={formData.discount_percentage}
+                  onChange={handleChange}
+                  placeholder="Discount % (e.g., 10 for 10% off)"
+                  min="0"
+                  max="100"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
@@ -197,35 +357,52 @@ const AddProduct = () => {
             <div className="flex gap-4 flex-wrap">
               <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 text-sm cursor-pointer hover:border-indigo-500 hover:text-indigo-500 transition">
                 <span>Click to Upload</span>
-                <input type="file" className="hidden" />
-              </label>
-              <div className="relative">
-                <img
-                  src="https://via.placeholder.com/100x120"
-                  alt="product"
-                  className="w-32 h-32 rounded-lg object-cover"
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleImageChange}
                 />
-                <button className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-red-600 text-white text-xs px-2 py-1 rounded-md">
-                  Remove
-                </button>
-              </div>
+              </label>
+              {imagePreview && (
+                <div className="relative">
+                  <img
+                    src={imagePreview}
+                    alt="product preview"
+                    className="w-32 h-32 rounded-lg object-cover"
+                  />
+                  <button 
+                    type="button"
+                    onClick={removeImage}
+                    className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-red-600 text-white text-xs px-2 py-1 rounded-md"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Buttons */}
           <div className="flex items-center justify-end gap-3">
-            <button className="border border-gray-300 px-4 py-2 rounded-md text-sm hover:bg-gray-100">
-              Save Product
+            <button 
+              type="button"
+              onClick={() => navigate('/products')}
+              className="border border-gray-300 px-4 py-2 rounded-md text-sm hover:bg-gray-100"
+            >
+              Cancel
             </button>
-            <button className="border border-indigo-600 text-indigo-600 px-4 py-2 rounded-md text-sm hover:bg-indigo-50">
-              Schedule
-            </button>
-            <button className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">
-              + Add Product
+            <button 
+              type="submit"
+              disabled={loading}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {loading ? 'Adding...' : '+ Add Product'}
             </button>
           </div>
         </div>
       </div>
+      </form>
     </div>
   );
 };
