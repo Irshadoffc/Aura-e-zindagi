@@ -27,7 +27,7 @@ import AddProduct from './Components/pages/products/AddProduct';
 import SocialMediaToggle from './Components/Socialmedia';
 import Orders from './Components/pages/Orders/Orders';
 import Products from './Components/pages/Products/Products';
-import ProtectedRoute from './Components/ProtectedRoute';
+import ProtectedRoute, { AdminRoute } from './Components/ProtectedRoute';
 
 const App = () => {
   return (
@@ -46,9 +46,9 @@ const App = () => {
 
         {/* 🧭 Admin Dashboard Pages */}
         <Route element={
-          <ProtectedRoute>
+          <AdminRoute>
             <Layout />
-          </ProtectedRoute>
+          </AdminRoute>
         }>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="orders" element={<Orders/>} />
@@ -64,9 +64,9 @@ const App = () => {
 
         {/* 🆕 Add Product Page (Standalone without Sidebar) */}
         <Route path="/add-product" element={
-          <ProtectedRoute>
+          <AdminRoute>
             <AddProduct />
-          </ProtectedRoute>
+          </AdminRoute>
         } />
       </Routes>
       
