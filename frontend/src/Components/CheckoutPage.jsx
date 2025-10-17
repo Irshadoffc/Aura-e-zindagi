@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import api from "../api/Axios";
 
 // --------------------- CARD PAYMENT FORM ---------------------
 function CheckoutForm({ total, discount }) {
@@ -101,11 +102,11 @@ function CheckoutForm({ total, discount }) {
         {/* Summary */}
         <div className="flex justify-between mb-6 font-bold text-lg">
           <span className="text-gray-900">Total (after 5% discount)</span>
-          <span className="text-blue-600">₨{total.toLocaleString()}</span>
+          <span className="text-blue-600">PKR {total.toLocaleString()}</span>
         </div>
 
         <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition-colors">
-          Pay ₨{total.toLocaleString()}
+          Pay PKR {total.toLocaleString()}
         </button>
       </div>
 
@@ -127,24 +128,24 @@ function CODForm({ subtotal, shipping, codCharges, discount }) {
       <div className="mt-4 space-y-2">
         <div className="flex justify-between">
           <span className="text-gray-700">Subtotal</span>
-          <strong className="text-gray-900">{subtotal.toLocaleString()} PKR</strong>
+          <strong className="text-gray-900">PKR {subtotalPKR.toLocaleString()}</strong>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-700">Shipping (Fixed)</span>
-          <strong className="text-gray-900">{shipping.toLocaleString()} PKR</strong>
+          <strong className="text-gray-900">PKR {shipping.toLocaleString()}</strong>
         </div>
         <div className="flex justify-between text-red-600">
           <span>COD Charges</span>
-          <strong>+{codCharges} PKR</strong>
+          <strong>+PKR {codCharges}</strong>
         </div>
         <div className="flex justify-between text-green-600">
           <span>Discount (5%)</span>
-          <strong>-{discount.toLocaleString()} PKR</strong>
+          <strong>-PKR {discount.toLocaleString()}</strong>
         </div>
         <hr className="border-gray-300 my-3" />
         <div className="flex justify-between font-bold text-lg">
           <span className="text-gray-900">Total</span>
-          <span className="text-blue-600">{total.toLocaleString()} PKR</span>
+          <span className="text-blue-600">PKR {total.toLocaleString()}</span>
         </div>
       </div>
 
@@ -166,21 +167,65 @@ export default function CheckoutPage() {
   const [postalcode, setPostalcode] = useState("");
   const formRef = useRef(null);
 
-  // ✅ Load cart items from localStorage
-  const [cartItems, setCartItems] = useState(() => {
-    const saved = localStorage.getItem("cartItems");
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Load cart items from backend API
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchCartItems();
+    loadUserData();
+  }, []);
+
+  const loadUserData = () => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      setName(userData.name || '');
+      setEmail(userData.email || '');
+    }
+  };
+
+  const fetchCartItems = async () => {
+    try {
+      const user = localStorage.getItem('user');
+      if (user) {
+        const response = await api.get('/cart');
+        const backendItems = response.data.cart_items.map(item => ({
+          id: item.product.id,
+          name: item.product.name,
+          image: item.product.image ? 
+            (item.product.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${item.product.image}` : `/${item.product.image}`) 
+            : '/Images/Card-1.webp',
+          selectedSize: item.size,
+          quantity: item.quantity,
+          basePrice: parseFloat(item.price),
+          totalPrice: parseFloat(item.price) * item.quantity
+        }));
+        setCartItems(backendItems);
+      } else {
+        // Fallback to localStorage
+        const saved = localStorage.getItem("cartItems");
+        setCartItems(saved ? JSON.parse(saved) : []);
+      }
+    } catch (error) {
+      console.error('Error fetching cart:', error);
+      // Fallback to localStorage
+      const saved = localStorage.getItem("cartItems");
+      setCartItems(saved ? JSON.parse(saved) : []);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const discount = subtotal * 0.05;
+  const subtotalPKR = subtotal * 280;
+  const discount = subtotalPKR * 0.05;
   const shipping = 500;
   const codCharges = 250;
 
-  const total =
-    paymentMethod === "COD"
-      ? subtotal + shipping + codCharges - discount
-      : subtotal + shipping - discount;
+  const total = paymentMethod === "COD"
+    ? subtotalPKR + shipping + codCharges - discount
+    : subtotalPKR + shipping - discount;
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -191,6 +236,17 @@ export default function CheckoutPage() {
     if (paymentMethod) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [paymentMethod]);
+
+  if (loading) {
+    return (
+      <div className="py-12 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <p className="mt-2 text-gray-600">Loading checkout...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="py-12 bg-gray-50 min-h-screen">
@@ -260,7 +316,7 @@ export default function CheckoutPage() {
                             <p className="text-gray-500 text-xs">{item.selectedSize} x {item.quantity}</p>
                           </div>
                         </div>
-                        <p className="text-gray-800 text-sm">₨{item.totalPrice.toLocaleString()}</p>
+                        <p className="text-gray-800 text-sm">PKR {(item.totalPrice * 280).toLocaleString()}</p>
                       </div>
                     ))}
                   </div>
@@ -269,28 +325,28 @@ export default function CheckoutPage() {
 
                   <div className="flex justify-between text-sm mb-1">
                     <span>Subtotal</span>
-                    <span>{subtotal.toLocaleString()} PKR</span>
+                    <span>PKR {subtotalPKR.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm mb-1">
                     <span>Shipping</span>
-                    <span>{shipping.toLocaleString()} PKR</span>
+                    <span>PKR {shipping.toLocaleString()}</span>
                   </div>
                   {paymentMethod === "COD" && (
                     <div className="flex justify-between text-sm mb-1 text-red-600">
                       <span>COD Charges</span>
-                      <span>{codCharges.toLocaleString()} PKR</span>
+                      <span>PKR {codCharges.toLocaleString()}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm mb-1 text-green-600">
                     <span>Discount (5%)</span>
-                    <span>-{discount.toLocaleString()} PKR</span>
+                    <span>-PKR {discount.toLocaleString()}</span>
                   </div>
 
                   <hr className="border-gray-200 my-4" />
 
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span className="text-blue-600">{total.toLocaleString()} PKR</span>
+                    <span className="text-blue-600">PKR {total.toLocaleString()}</span>
                   </div>
                 </div>
               </div>

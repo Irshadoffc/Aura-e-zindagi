@@ -2,47 +2,107 @@ import React, { useState, useEffect } from "react";
 import { X, Minus, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import api from "../../api/Axios";
 
 const CartDrawer = ({ onClose }) => {
   const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Load cart from localStorage
+  // Load cart from backend API
   useEffect(() => {
-    const loadCart = () => {
-      const saved = localStorage.getItem("cartItems");
-      setCartItems(saved ? JSON.parse(saved) : []);
+    const loadCart = async () => {
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const response = await api.get('/cart');
+          const backendItems = response.data.cart_items.map(item => ({
+            id: item.id,
+            productId: item.product.id,
+            name: item.product.name,
+            image: item.product.image ? 
+              (item.product.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${item.product.image}` : `/${item.product.image}`) 
+              : '/Images/Card-1.webp',
+            selectedSize: item.size,
+            quantity: item.quantity,
+            basePrice: parseFloat(item.price),
+            totalPrice: parseFloat(item.price) * item.quantity
+          }));
+          setCartItems(backendItems);
+        } catch (error) {
+          console.error('Error fetching cart:', error);
+          // Fallback to localStorage
+          const saved = localStorage.getItem("cartItems");
+          setCartItems(saved ? JSON.parse(saved) : []);
+        }
+      } else {
+        // Fallback to localStorage for non-authenticated users
+        const saved = localStorage.getItem("cartItems");
+        setCartItems(saved ? JSON.parse(saved) : []);
+      }
+      setLoading(false);
     };
     
     loadCart();
     
-    // Listen for storage changes
-    window.addEventListener("storage", loadCart);
-    window.addEventListener("cartUpdated", loadCart);
+    // Listen for cart updates
+    const handleCartUpdate = () => {
+      setTimeout(() => loadCart(), 100); // Small delay to ensure backend is updated
+    };
+    
+    window.addEventListener("cartUpdated", handleCartUpdate);
     
     return () => {
-      window.removeEventListener("storage", loadCart);
-      window.removeEventListener("cartUpdated", loadCart);
+      window.removeEventListener("cartUpdated", handleCartUpdate);
     };
   }, []);
 
+
+
   // Update quantity
-  const updateQuantity = (index, newQty) => {
+  const updateQuantity = async (index, newQty) => {
     if (newQty < 1) return;
-    const updated = [...cartItems];
-    updated[index].quantity = newQty;
-    updated[index].totalPrice = newQty * updated[index].basePrice;
-    setCartItems(updated);
-    localStorage.setItem("cartItems", JSON.stringify(updated));
-    window.dispatchEvent(new Event("cartUpdated"));
+    
+    const item = cartItems[index];
+    const user = localStorage.getItem('user');
+    
+    if (user && item.id) {
+      try {
+        await api.put(`/cart/${item.id}`, { quantity: newQty });
+        window.dispatchEvent(new Event("cartUpdated"));
+      } catch (error) {
+        console.error('Error updating cart:', error);
+      }
+    } else {
+      // Fallback to localStorage
+      const updated = [...cartItems];
+      updated[index].quantity = newQty;
+      updated[index].totalPrice = newQty * updated[index].basePrice;
+      setCartItems(updated);
+      localStorage.setItem("cartItems", JSON.stringify(updated));
+      window.dispatchEvent(new Event("cartUpdated"));
+    }
   };
 
   // Remove item
-  const removeItem = (index) => {
-    const updated = cartItems.filter((_, i) => i !== index);
-    setCartItems(updated);
-    localStorage.setItem("cartItems", JSON.stringify(updated));
-    window.dispatchEvent(new Event("cartUpdated"));
+  const removeItem = async (index) => {
+    const item = cartItems[index];
+    const user = localStorage.getItem('user');
+    
+    if (user && item.id) {
+      try {
+        await api.delete(`/cart/${item.id}`);
+        window.dispatchEvent(new Event("cartUpdated"));
+      } catch (error) {
+        console.error('Error removing item:', error);
+      }
+    } else {
+      // Fallback to localStorage
+      const updated = cartItems.filter((_, i) => i !== index);
+      setCartItems(updated);
+      localStorage.setItem("cartItems", JSON.stringify(updated));
+      window.dispatchEvent(new Event("cartUpdated"));
+    }
   };
 
   // Calculate total
@@ -140,7 +200,7 @@ const CartDrawer = ({ onClose }) => {
 
                     {/* Price */}
                     <p className="font-semibold text-sm mt-1">
-                      PKR {item.totalPrice.toLocaleString()}
+                      PKR {(item.totalPrice * 280).toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -154,7 +214,7 @@ const CartDrawer = ({ onClose }) => {
               <div className="flex justify-between items-center mb-4">
                 <span className="font-semibold text-gray-700">Total:</span>
                 <span className="font-bold text-lg">
-                  PKR {totalAmount.toLocaleString()}
+                  PKR {(totalAmount * 280).toLocaleString()}
                 </span>
               </div>
               <button

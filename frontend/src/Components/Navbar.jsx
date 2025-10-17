@@ -27,22 +27,47 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Update cart count from localStorage
+  // Update cart count from backend API
   useEffect(() => {
-    const updateCartCount = () => {
-      const saved = localStorage.getItem("cartItems");
-      if (saved) {
-        const items = JSON.parse(saved);
-        const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
-        setCartCount(totalQty);
+    const updateCartCount = async () => {
+      const user = localStorage.getItem('user');
+      if (user) {
+        try {
+          const response = await api.get('/cart');
+          const totalQty = response.data.cart_items.reduce((sum, item) => sum + item.quantity, 0);
+          setCartCount(totalQty);
+        } catch (error) {
+          console.error('Error fetching cart count:', error);
+          setCartCount(0);
+        }
       } else {
-        setCartCount(0);
+        // Fallback to localStorage for non-authenticated users
+        const saved = localStorage.getItem("cartItems");
+        if (saved) {
+          const items = JSON.parse(saved);
+          const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
+          setCartCount(totalQty);
+        } else {
+          setCartCount(0);
+        }
       }
     };
+    
     updateCartCount();
+    
+    // Listen for cart updates
+    const handleCartUpdate = () => {
+      updateCartCount();
+    };
+    
+    window.addEventListener("cartUpdated", handleCartUpdate);
     window.addEventListener("storage", updateCartCount);
-    return () => window.removeEventListener("storage", updateCartCount);
-  }, []);
+    
+    return () => {
+      window.removeEventListener("cartUpdated", handleCartUpdate);
+      window.removeEventListener("storage", updateCartCount);
+    };
+  }, [isLoggedIn]);
 
   // Check authentication status
   useEffect(() => {

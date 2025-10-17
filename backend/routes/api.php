@@ -20,6 +20,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::post('/logout', [LoginController::class, 'logout']);
     
+    // Cart routes
+    Route::apiResource('cart', \App\Http\Controllers\Api\CartController::class);
+    
     // Dashboard routes
     Route::get('/dashboard', function () {
         return response()->json(['message' => 'Dashboard data']);

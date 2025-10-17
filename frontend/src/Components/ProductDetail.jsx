@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -7,12 +7,15 @@ import {
   Plus,
   ChevronDown,
 } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import CartDrawer from "./pages/NewCart";
 import SocialMediaToggle from "./Socialmedia";
+import api from "../api/Axios";
 
 const ProductDetail = () => {
   const { state } = useLocation();
@@ -45,12 +48,12 @@ const ProductDetail = () => {
       ? product.images
       : [product.image, product.image, product.image, product.image];
 
-  const basePrice = Number(String(product.price).replace(/[^0-9]/g, ""));
+  const basePrice = parseFloat(String(product.price).replace(/[^0-9.]/g, '')) || 0;
   const priceMap = {
     "50 ml": basePrice,
     "100 ml": Math.round(basePrice * 1.6),
   };
-  const totalPrice = priceMap[selectedSize];
+  const totalPrice = priceMap[selectedSize] * quantity;
 
   const handlePrevImage = () =>
     setSelectedImage((prev) => (prev === 0 ? images.length - 1 : prev - 1));
@@ -62,61 +65,107 @@ const ProductDetail = () => {
     setQuantity((prev) => (prev > 1 ? prev - 1 : 1));
 
   // Add main product to cart
-  const handleAddToCart = () => {
-    const existingIndex = cartItems.findIndex(
-      (item) => item.id === product.id && item.selectedSize === selectedSize
-    );
-
-    let updatedCart;
-    if (existingIndex >= 0) {
-      updatedCart = [...cartItems];
-      updatedCart[existingIndex].quantity += quantity;
-      updatedCart[existingIndex].totalPrice =
-        updatedCart[existingIndex].quantity *
-        priceMap[updatedCart[existingIndex].selectedSize];
-    } else {
-      updatedCart = [
-        ...cartItems,
-        {
-          id: product.id,
-          name: product.name,
-          image: images[selectedImage],
-          selectedSize,
-          quantity,
-          basePrice: priceMap[selectedSize],
-          totalPrice: priceMap[selectedSize] * quantity,
-        },
-      ];
+  const handleAddToCart = async () => {
+    const user = localStorage.getItem('user');
+    if (!user) {
+      navigate('/login');
+      return;
     }
 
-    setCartItems(updatedCart);
-    localStorage.setItem("cartItems", JSON.stringify(updatedCart));
-    
-    // Dispatch custom event for cart update
-    window.dispatchEvent(new Event("cartUpdated"));
-    
-    setShowCartDrawer(true);
-    setQuantity(1);
+    try {
+      const response = await api.post('/cart', {
+        product_id: product.id,
+        size: selectedSize,
+        quantity: quantity,
+        price: priceMap[selectedSize]
+      });
+      
+      toast.success('✅ Product added to cart!', {
+        position: 'top-right',
+        autoClose: 2000,
+      });
+      
+      setShowCartDrawer(true);
+      setQuantity(1);
+      
+      // Dispatch custom event for cart update
+      window.dispatchEvent(new Event("cartUpdated"));
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('❌ Failed to add to cart. Please login first.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      // Fallback to localStorage
+      const existingIndex = cartItems.findIndex(
+        (item) => item.id === product.id && item.selectedSize === selectedSize
+      );
+
+      let updatedCart;
+      if (existingIndex >= 0) {
+        updatedCart = [...cartItems];
+        updatedCart[existingIndex].quantity += quantity;
+        updatedCart[existingIndex].totalPrice =
+          updatedCart[existingIndex].quantity *
+          priceMap[updatedCart[existingIndex].selectedSize];
+      } else {
+        updatedCart = [
+          ...cartItems,
+          {
+            id: product.id,
+            name: product.name,
+            image: images[selectedImage],
+            selectedSize,
+            quantity,
+            basePrice: priceMap[selectedSize],
+            totalPrice: priceMap[selectedSize] * quantity,
+          },
+        ];
+      }
+
+      setCartItems(updatedCart);
+      localStorage.setItem("cartItems", JSON.stringify(updatedCart));
+      
+      window.dispatchEvent(new Event("cartUpdated"));
+      setShowCartDrawer(true);
+      setQuantity(1);
+    }
   };
 
-  // Buy it now handler - Fixed to navigate to /checkout
-  const handleBuyNow = () => {
-    const item = {
-      id: product.id,
-      name: product.name,
-      image: images[selectedImage],
-      selectedSize,
-      quantity,
-      basePrice: priceMap[selectedSize],
-      totalPrice: priceMap[selectedSize] * quantity,
-    };
-    
-    // Save item to cart first
-    const updatedCart = [...cartItems, item];
-    localStorage.setItem("cartItems", JSON.stringify(updatedCart));
-    
-    // Navigate to checkout page
-    navigate("/checkout");
+  // Buy it now handler - Send to backend and navigate to checkout
+  const handleBuyNow = async () => {
+    const user = localStorage.getItem('user');
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      await api.post('/cart', {
+        product_id: product.id,
+        size: selectedSize,
+        quantity: quantity,
+        price: priceMap[selectedSize]
+      });
+      
+      navigate("/checkout");
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      // Fallback to localStorage
+      const item = {
+        id: product.id,
+        name: product.name,
+        image: images[selectedImage],
+        selectedSize,
+        quantity,
+        basePrice: priceMap[selectedSize],
+        totalPrice: priceMap[selectedSize] * quantity,
+      };
+      
+      const updatedCart = [...cartItems, item];
+      localStorage.setItem("cartItems", JSON.stringify(updatedCart));
+      navigate("/checkout");
+    }
   };
 
   // Taster products
@@ -217,7 +266,10 @@ const ProductDetail = () => {
 
               <div className="mb-6">
                 <p className="text-xl font-semibold text-gray-900">
-                  PKR {totalPrice.toLocaleString()}
+                  ${totalPrice.toFixed(2)}
+                </p>
+                <p className="text-sm text-gray-600">
+                  ${priceMap[selectedSize].toFixed(2)} × {quantity}
                 </p>
               </div>
 
@@ -299,7 +351,7 @@ const ProductDetail = () => {
                       />
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-medium text-lg">{taster.name}</span>
-                        <span className="font-semibold text-lg">PKR {taster.price}</span>
+                        <span className="font-semibold text-lg">PKR {(taster.price * 280).toLocaleString()}</span>
                       </div>
                       <span className="text-sm text-gray-500 mb-4">5 ml</span>
 
@@ -389,6 +441,7 @@ const ProductDetail = () => {
         </AnimatePresence>
       </div>
       <Footer />
+      <ToastContainer />
     </>
   );
 };
