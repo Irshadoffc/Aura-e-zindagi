@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FaSearch, FaUser, FaShoppingBag } from "react-icons/fa";
-import { FiMenu, FiX, FiChevronRight } from "react-icons/fi";
+import { FiMenu, FiX, FiChevronRight, FiLogOut } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import MiniNavbar from "./Mobilescreen/MiniNavbar";
 import CartDrawer from "./pages/NewCart";
+import api from "../api/Axios";
 
 const Navbar = () => {
   const [isTop, setIsTop] = useState(true);
@@ -13,6 +14,8 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [showCart, setShowCart] = useState(false); // ✅ control CartDrawer visibility
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
   // Scroll shadow effect
@@ -41,6 +44,24 @@ const Navbar = () => {
     return () => window.removeEventListener("storage", updateCartCount);
   }, []);
 
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem("token");
+      const userData = localStorage.getItem("user");
+      if (token && userData) {
+        setIsLoggedIn(true);
+        setUser(JSON.parse(userData));
+      } else {
+        setIsLoggedIn(false);
+        setUser(null);
+      }
+    };
+    checkAuth();
+    window.addEventListener("storage", checkAuth);
+    return () => window.removeEventListener("storage", checkAuth);
+  }, []);
+
   const navLinks = [
     { name: "WOMAN", path: "/women" },
     { name: "MAN", path: "/man" },
@@ -60,6 +81,20 @@ const Navbar = () => {
   const menuItemVariants = {
     hidden: { opacity: 0, x: -20 },
     visible: { opacity: 1, x: 0, transition: { duration: 0.2 } },
+  };
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setIsLoggedIn(false);
+      setUser(null);
+      navigate('/login');
+    }
   };
 
   return (
@@ -122,14 +157,25 @@ const Navbar = () => {
             {showSearch ? <FiX className="text-black" /> : <FaSearch className="text-black" />}
           </button>
 
-          {/* Profile */}
-          <button
-            onClick={() => navigate("/login")}
-            className="inline-flex p-2 rounded-md"
-            aria-label="Profile"
-          >
-            <FaUser />
-          </button>
+          {/* Profile / Logout */}
+          {isLoggedIn ? (
+            <button
+              onClick={handleLogout}
+              className="inline-flex p-2 rounded-md hover:bg-red-600 transition-colors cursor-pointer"
+              aria-label="Logout"
+              title={`Logout (${user?.name})`}
+            >
+              <FiLogOut />
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/login")}
+              className="inline-flex p-2 rounded-md cursor-pointer"
+              aria-label="Profile"
+            >
+              <FaUser />
+            </button>
+          )}
 
           {/* ✅ Cart Drawer Trigger */}
         <button

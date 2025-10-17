@@ -15,16 +15,19 @@ class LoginController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (Auth::attempt($credentials)) {
+            /** @var \App\Models\User $user */
             $user = Auth::user();
+            $token = $user->createToken('auth_token')->plainTextToken;
 
-            // Example roles: admin / user
             return response()->json([
                 'status' => true,
                 'message' => 'Login successful',
+                'token' => $token,
                 'user' => [
+                    'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'role' => $user->role ?? 'user', // default user
+                    'role' => $user->role ?? 'user',
                 ]
             ], 200);
         } else {
@@ -50,13 +53,18 @@ public function handleGoogleLogin(Request $request)
             ]
         );
 
-
+        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role,
-
+            'status' => true,
+            'message' => 'Google login successful',
+            'token' => $token,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ]
         ], 200);
     } catch (\Exception $e) {
         return response()->json([
@@ -64,6 +72,16 @@ public function handleGoogleLogin(Request $request)
             'message' => 'Server error: ' . $e->getMessage(),
         ], 500);
     }
+}
+
+public function logout(Request $request)
+{
+    $request->user()->currentAccessToken()->delete();
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Logged out successfully'
+    ], 200);
 }
 
 }

@@ -27,6 +27,7 @@ import AddProduct from './Components/pages/products/AddProduct';
 import SocialMediaToggle from './Components/Socialmedia';
 import Orders from './Components/pages/Orders/Orders';
 import Products from './Components/pages/Products/Products';
+import ProtectedRoute from './Components/ProtectedRoute';
 
 const App = () => {
   return (
@@ -44,7 +45,11 @@ const App = () => {
         <Route path="/cart" element={<CartDrawer />} />
 
         {/* 🧭 Admin Dashboard Pages */}
-        <Route element={<Layout />}>
+        <Route element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="orders" element={<Orders/>} />
           <Route path="/orders/received" element={<Received />} />
@@ -58,7 +63,11 @@ const App = () => {
         </Route>
 
         {/* 🆕 Add Product Page (Standalone without Sidebar) */}
-        <Route path="/add-product" element={<AddProduct />} />
+        <Route path="/add-product" element={
+          <ProtectedRoute>
+            <AddProduct />
+          </ProtectedRoute>
+        } />
       </Routes>
       
     </BrowserRouter>

@@ -5,6 +5,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { GoogleLogin } from "@react-oauth/google";
 import { jwtDecode } from "jwt-decode";
+import api from "../api/Axios";
 
 
 const LoginPage = () => {
@@ -27,29 +28,28 @@ const LoginPage = () => {
   }
 
   try {
-    const res = await fetch("http://localhost:8000/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    });
+    const response = await api.post("/login", formData);
+    const data = response.data;
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.message || "Invalid credentials");
-    }
-
-    toast.success(`✅ Logged in as: ${data.name}`, {
+    toast.success(`✅ Logged in as: ${data.user.name}`, {
       position: "top-center",
       autoClose: 2000,
       theme: "dark",
     });
 
-    localStorage.setItem("user", JSON.stringify(data));
+    // Store token and user data
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
 
-    setTimeout(() => navigate("/Dashboard"), 200);
+    // Set default authorization header
+    api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+
+    // Role-based redirect
+    const redirectPath = data.user.role === 'admin' ? '/dashboard' : '/';
+    setTimeout(() => navigate(redirectPath), 200);
   } catch (err) {
-    toast.error(`⚠ ${err.message}`, {
+    const message = err.response?.data?.message || err.message || "Login failed";
+    toast.error(`⚠ ${message}`, {
       position: "top-center",
       autoClose: 2500,
       theme: "dark",
@@ -67,41 +67,30 @@ const handleGoogleLoginSuccess = async (credentialResponse) => {
     const { email, name } = decoded;
 
     // Call backend API to store/check user
-    const res = await fetch("http://localhost:8000/api/google-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, name }),
-    });
-
-    // ✅ Check if response is JSON before parsing
-    const contentType = res.headers.get("content-type");
-    let data;
-
-    if (contentType && contentType.includes("application/json")) {
-      data = await res.json();
-    } else {
-      const text = await res.text();
-      throw new Error("Server returned non-JSON response:\n" + text);
-    }
-
-    if (!res.ok) {
-      throw new Error(data.message || "Google login failed on server");
-    }
+    const response = await api.post("/google-login", { email, name });
+    const data = response.data;
 
     // Show toast and store user info from backend
-    toast.success(`✅ Logged in as: ${data.name}`, {
+    toast.success(`✅ Logged in as: ${data.user.name}`, {
       position: "top-center",
       autoClose: 2000,
       theme: "dark",
     });
 
-    localStorage.setItem("user", JSON.stringify(data));
+    // Store token and user data
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
 
-    // Redirect to Dashboard
-    navigate("/Dashboard");
+    // Set default authorization header
+    api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+
+    // Role-based redirect
+    const redirectPath = data.user.role === 'admin' ? '/dashboard' : '/';
+    navigate(redirectPath);
   } catch (err) {
     console.error("Google Login Error:", err);
-    toast.error(`⚠ ${err.message}`, {
+    const message = err.response?.data?.message || err.message || "Google login failed";
+    toast.error(`⚠ ${message}`, {
       position: "top-center",
       autoClose: 2500,
       theme: "dark",
@@ -196,7 +185,7 @@ return (
             {/* Login Button */}
             <button
               type="submit"
-              className="w-full bg-yellow-500 text-black font-semibold py-2.5 rounded-lg hover:bg-yellow-400 transition-colors shadow-[0_0_10px_rgba(255,215,0,0.4)]"
+              className="w-full bg-yellow-500 text-black font-semibold py-2.5 rounded-lg hover:bg-yellow-400 transition-colors shadow-[0_0_10px_rgba(255,215,0,0.4)] cursor-pointer"
             >
               Login
             </button>
