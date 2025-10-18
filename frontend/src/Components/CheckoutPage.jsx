@@ -1,14 +1,72 @@
 import React, { useState, useRef, useEffect } from "react";
 import api from "../api/Axios";
+import { toast } from 'react-toastify';
 
 // --------------------- CARD PAYMENT FORM ---------------------
-function CheckoutForm({ total, discount }) {
-  const [email, setEmail] = useState("");
+function CheckoutForm({ total, discount, onPlaceOrder, loading }) {
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvv, setCvv] = useState("");
   const [cardholderName, setCardholderName] = useState("");
-  const [taxNumber, setTaxNumber] = useState("");
+
+  const formatCardNumber = (value) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const matches = v.match(/\d{4,16}/g);
+    const match = matches && matches[0] || '';
+    const parts = [];
+    for (let i = 0, len = match.length; i < len; i += 4) {
+      parts.push(match.substring(i, i + 4));
+    }
+    if (parts.length) {
+      return parts.join(' ');
+    } else {
+      return v;
+    }
+  };
+
+  const formatExpiry = (value) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    if (v.length >= 2) {
+      return v.substring(0, 2) + '/' + v.substring(2, 4);
+    }
+    return v;
+  };
+
+  const sanitizeInput = (value) => {
+    return value.replace(/<script[^>]*>.*?<\/script>/gi, '').replace(/[<>"']/g, '');
+  };
+
+  const handleCardNumberChange = (e) => {
+    const sanitized = sanitizeInput(e.target.value);
+    const formatted = formatCardNumber(sanitized);
+    if (formatted.length <= 19) {
+      setCardNumber(formatted);
+    }
+  };
+
+  const handleExpiryChange = (e) => {
+    const sanitized = sanitizeInput(e.target.value);
+    const formatted = formatExpiry(sanitized);
+    if (formatted.length <= 5) {
+      setExpiry(formatted);
+    }
+  };
+
+  const handleCvvChange = (e) => {
+    const sanitized = sanitizeInput(e.target.value);
+    const value = sanitized.replace(/[^0-9]/gi, '');
+    if (value.length <= 4) {
+      setCvv(value);
+    }
+  };
+
+  const handleCardholderNameChange = (e) => {
+    const sanitized = sanitizeInput(e.target.value);
+    const value = sanitized.replace(/[^a-zA-Z\s]/g, '');
+    if (value.length <= 50) {
+      setCardholderName(value);
+    }
+  };
 
   return (
     <div className="border border-gray-200 rounded-xl p-6 bg-gray-50">
@@ -18,21 +76,7 @@ function CheckoutForm({ total, discount }) {
         </button>
       </div>
 
-      {/* Inputs */}
       <div>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email address
-          </label>
-          <input
-            type="email"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Card number
@@ -42,7 +86,7 @@ function CheckoutForm({ total, discount }) {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
             placeholder="1234 1234 1234 1234"
             value={cardNumber}
-            onChange={(e) => setCardNumber(e.target.value)}
+            onChange={handleCardNumberChange}
           />
         </div>
 
@@ -56,19 +100,19 @@ function CheckoutForm({ total, discount }) {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               placeholder="MM/YY"
               value={expiry}
-              onChange={(e) => setExpiry(e.target.value)}
+              onChange={handleExpiryChange}
             />
           </div>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Security code
+              CVV
             </label>
             <input
               type="text"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               placeholder="123"
               value={cvv}
-              onChange={(e) => setCvv(e.target.value)}
+              onChange={handleCvvChange}
             />
           </div>
         </div>
@@ -80,45 +124,35 @@ function CheckoutForm({ total, discount }) {
           <input
             type="text"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="Jenny Rosen"
+            placeholder="John Doe"
             value={cardholderName}
-            onChange={(e) => setCardholderName(e.target.value)}
+            onChange={handleCardholderNameChange}
           />
         </div>
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Tax number (optional)
-          </label>
-          <input
-            type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="123456789"
-            value={taxNumber}
-            onChange={(e) => setTaxNumber(e.target.value)}
-          />
-        </div>
-
-        {/* Summary */}
         <div className="flex justify-between mb-6 font-bold text-lg">
           <span className="text-gray-900">Total (after 5% discount)</span>
           <span className="text-blue-600">PKR {total.toLocaleString()}</span>
         </div>
 
-        <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition-colors">
-          Pay PKR {total.toLocaleString()}
+        <button 
+          onClick={() => onPlaceOrder('Bank Transfer', { cardNumber, expiry, cvv, cardholderName })}
+          disabled={loading || !cardNumber || !expiry || !cvv || !cardholderName}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition-colors disabled:opacity-50"
+        >
+          {loading ? 'Processing Payment...' : `Pay PKR ${total.toLocaleString()}`}
         </button>
       </div>
 
       <div className="text-center mt-6 text-gray-500 text-xs">
-        Powered by Supplier · Terms · Privacy
+        Powered by Secure Payment Gateway
       </div>
     </div>
   );
 }
 
 // --------------------- COD PAYMENT FORM ---------------------
-function CODForm({ subtotal, shipping, codCharges, discount }) {
+function CODForm({ subtotal, shipping, codCharges, discount, onPlaceOrder, loading }) {
   const total = subtotal + shipping + codCharges - discount;
 
   return (
@@ -128,7 +162,7 @@ function CODForm({ subtotal, shipping, codCharges, discount }) {
       <div className="mt-4 space-y-2">
         <div className="flex justify-between">
           <span className="text-gray-700">Subtotal</span>
-          <strong className="text-gray-900">PKR {subtotalPKR.toLocaleString()}</strong>
+          <strong className="text-gray-900">PKR {subtotal.toLocaleString()}</strong>
         </div>
         <div className="flex justify-between">
           <span className="text-gray-700">Shipping (Fixed)</span>
@@ -149,8 +183,12 @@ function CODForm({ subtotal, shipping, codCharges, discount }) {
         </div>
       </div>
 
-      <button className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition-colors">
-        Place Order (COD)
+      <button 
+        onClick={onPlaceOrder}
+        disabled={loading}
+        className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition-colors disabled:opacity-50"
+      >
+        {loading ? 'Placing Order...' : 'Place Order (COD)'}
       </button>
     </div>
   );
@@ -165,6 +203,7 @@ export default function CheckoutPage() {
   const [city, setCity] = useState("");
   const [streetname, setStreetname] = useState("");
   const [postalcode, setPostalcode] = useState("");
+  const [orderLoading, setOrderLoading] = useState(false);
   const formRef = useRef(null);
 
   // Load cart items from backend API
@@ -226,6 +265,59 @@ export default function CheckoutPage() {
   const total = paymentMethod === "COD"
     ? subtotalPKR + shipping + codCharges - discount
     : subtotalPKR + shipping - discount;
+
+  const handlePlaceOrder = async (method = 'COD', cardData = null) => {
+    if (!name || !phone || !email || !city || !streetname || !postalcode) {
+      toast.error('Please fill all customer information fields');
+      return;
+    }
+
+    setOrderLoading(true);
+    try {
+      // First create the order
+      const orderResponse = await api.post('/orders', {
+        customer_name: name,
+        customer_phone: phone,
+        customer_email: email,
+        customer_city: city,
+        customer_address: streetname,
+        customer_postal_code: postalcode,
+        payment_method: method
+      });
+      
+      const orderId = orderResponse.data.order.id;
+      
+      // Show success message based on method
+      if (method === 'Bank Transfer' && cardData) {
+        const paymentResponse = await api.post('/payment/process', {
+          order_id: orderId,
+          card_number: cardData.cardNumber,
+          expiry: cardData.expiry,
+          cvv: cardData.cvv,
+          cardholder_name: cardData.cardholderName,
+          gateway: 'hbl'
+        });
+        
+        if (paymentResponse.data.status) {
+          toast.success('Payment successful! Order ID: ' + orderId);
+        } else {
+          toast.error('Payment failed. Please try again.');
+          return;
+        }
+      } else {
+        toast.success('Order placed successfully! Order ID: ' + orderId);
+      }
+      
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 2000);
+    } catch (error) {
+      console.error('Error placing order:', error);
+      toast.error('Failed to place order. Please try again.');
+    } finally {
+      setOrderLoading(false);
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -293,8 +385,8 @@ export default function CheckoutPage() {
 
                 {paymentMethod && (
                   <div ref={formRef} className="mt-6">
-                    {paymentMethod === "e-Transfer" && <CheckoutForm total={total} discount={discount} />}
-                    {paymentMethod === "COD" && <CODForm subtotal={subtotal} shipping={shipping} codCharges={codCharges} discount={discount} />}
+                    {paymentMethod === "e-Transfer" && <CheckoutForm total={total} discount={discount} onPlaceOrder={handlePlaceOrder} loading={orderLoading} />}
+                    {paymentMethod === "COD" && <CODForm subtotal={subtotalPKR} shipping={shipping} codCharges={codCharges} discount={discount} onPlaceOrder={() => handlePlaceOrder('COD')} loading={orderLoading} />}
                   </div>
                 )}
               </div>

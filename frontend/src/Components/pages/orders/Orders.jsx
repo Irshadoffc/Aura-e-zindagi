@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Package,
   Calendar,
@@ -7,6 +7,7 @@ import {
   ChevronDown,
   X,
 } from "lucide-react";
+import api from "../../../api/Axios";
 
 export default function Orders() {
   const [activeTab, setActiveTab] = useState("All");
@@ -17,101 +18,34 @@ export default function Orders() {
   const [dateFilter, setDateFilter] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: "total", direction: "asc" });
   const [editingOrder, setEditingOrder] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const initialOrders = [
-    {
-      id: "1013",
-      date: "2025-07-23",
-      customer: "Saad Anjum",
-      total: "Rs 2,990.00",
-      payment: "Unpaid",
-      fulfillment: "Return",
-      items: "1 item",
-      deliverymethod: "Free shipping",
-    },
-    {
-      id: "1012",
-      date: "2025-07-23",
-      customer: "Feman Ahsan",
-      total: "Rs 2,999.00",
-      payment: "Unpaid",
-      fulfillment: "Delivered",
-      items: "1 item",
-      deliverymethod: "Free shipping",
-    },
-    {
-      id: "1011",
-      date: "2025-07-22",
-      customer: "Uzii Sheilhoo",
-      total: "Rs 2,990.00",
-      payment: "Unpaid",
-      fulfillment: "Return",
-      items: "1 item",
-      deliverymethod: "Free shipping",
-    },
-    {
-      id: "1010",
-      date: "2025-07-22",
-      customer: "Ahsan Jamil",
-      total: "Rs 12,988.00",
-      payment: "Unpaid",
-      fulfillment: "Delivered",
-      items: "3 items",
-      deliverymethod: "Free shipping",
-    },
-    {
-      id: "1009",
-      date: "2025-07-22",
-      customer: "Ahsan Jamil",
-      total: "Rs 2,990.00",
-      payment: "Unpaid",
-      fulfillment: "Pending",
-      items: "1 item",
-      deliverymethod: "Free shipping",
-    },
-    {
-      id: "1008",
-      date: "2025-07-22",
-      customer: "Ahsan Jamil",
-      total: "Rs 4,999.00",
-      payment: "Unpaid",
-      fulfillment: "Return",
-      items: "1 item",
-      deliverymethod: "Free shipping",
-    },
-    {
-      id: "1007",
-      date: "2025-07-22",
-      customer: "Feman Ahsan",
-      total: "Rs 11,497.00",
-      payment: "Unpaid",
-      fulfillment: "Return",
-      items: "3 items",
-      deliverymethod: "Free shipping",
-    },
-    {
-      id: "1006",
-      date: "2025-07-22",
-      customer: "Femqn Ahsan",
-      total: "Rs 4,485.00",
-      payment: "Paid",
-      fulfillment: "Pending",
-      items: "2 items",
-      deliverymethod: "Free shipping",
-    },
-    {
-      id: "1005",
-      date: "2025-07-22",
-      customer: "Feman Ahsan",
-      total: "Rs 4,999.00",
-      payment: "Paid",
-      fulfillment: "Delivered",
-      items: "1 item",
-      deliverymethod: "Free shipping",
-    },
-  ];
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
-  const [orders, setOrders] = useState(initialOrders);
+  const fetchOrders = async () => {
+    try {
+      const response = await api.get('/orders');
+      const apiOrders = response.data.orders.map(order => ({
+        id: order.id.toString(),
+        date: new Date(order.created_at).toISOString().split('T')[0],
+        customer: order.customer_name,
+        total: `PKR ${(order.total_amount * 280).toLocaleString()}`,
+        payment: order.payment_status === 'pending' ? 'Unpaid' : 'Paid',
+        fulfillment: order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1),
+        items: `${order.order_items.length} item${order.order_items.length > 1 ? 's' : ''}`,
+        deliverymethod: order.payment_method === 'COD' ? 'Cash on Delivery' : 'Bank Transfer',
+        rawOrder: order
+      }));
+      setOrders(apiOrders);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleOrderSelection = (orderId) => {
     setSelectedOrders((prev) =>
@@ -159,9 +93,29 @@ export default function Orders() {
   const deliveredOrders = orders.filter((o) => o.fulfillment === "Delivered").length;
   const unpaidOrders = orders.filter((o) => o.payment === "Unpaid").length;
 
-  const handleUpdate = (updated) => {
-    setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
-    setEditingOrder(null);
+  const handleUpdate = async (updated) => {
+    try {
+      const statusMap = {
+        'Pending': 'pending',
+        'Delivered': 'delivered', 
+        'Return': 'cancelled'
+      };
+      const paymentMap = {
+        'Unpaid': 'pending',
+        'Paid': 'paid'
+      };
+      
+      await api.put(`/orders/${updated.id}`, {
+        order_status: statusMap[updated.fulfillment],
+        payment_status: paymentMap[updated.payment]
+      });
+      
+      setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+      setEditingOrder(null);
+    } catch (error) {
+      console.error('Error updating order:', error);
+      alert('Failed to update order');
+    }
   };
 
   return (
@@ -195,6 +149,12 @@ export default function Orders() {
       </div>
 
       {/* Table Section */}
+      {loading ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <p className="mt-2 text-gray-600">Loading orders...</p>
+        </div>
+      ) : (
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         {/* Toolbar: Search + Date */}
         <div className="flex flex-wrap md:flex-nowrap items-center justify-between px-4 py-3 border-b border-gray-200 gap-2">
@@ -356,6 +316,7 @@ export default function Orders() {
           </table>
         </div>
       </div>
+      )}
 
       {/* Edit Modal */}
       {editingOrder && (

@@ -22,6 +22,7 @@ const AddProduct = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [testers, setTesters] = useState([{ name: '', price: '', image: null }]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -58,6 +59,14 @@ const AddProduct = () => {
     setImagePreview(null);
   };
 
+  const addTester = () => setTesters([...testers, { name: '', price: '', image: null }]);
+  const removeTester = (index) => setTesters(testers.filter((_, i) => i !== index));
+  const updateTester = (index, field, value) => {
+    const updated = [...testers];
+    updated[index][field] = value;
+    setTesters(updated);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -74,6 +83,15 @@ const AddProduct = () => {
       if (selectedImage) {
         formDataToSend.append('image', selectedImage);
       }
+
+      // Append testers
+      testers.forEach((tester, index) => {
+        if (tester.name && tester.price) {
+          formDataToSend.append(`testers[${index}][name]`, tester.name);
+          formDataToSend.append(`testers[${index}][price]`, tester.price);
+          if (tester.image) formDataToSend.append(`testers[${index}][image]`, tester.image);
+        }
+      });
 
       const response = await api.post('/products', formDataToSend, {
         headers: {
@@ -100,6 +118,7 @@ const AddProduct = () => {
         stock_quantity: '',
         minimum_stock: 10
       });
+      setTesters([{ name: '', price: '', image: null }]);
       setSelectedImage(null);
       setImagePreview(null);
       
@@ -236,7 +255,21 @@ const AddProduct = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Product Stock
+                  Brand Name
+                </label>
+                <input
+                  type="text"
+                  name="brand_name"
+                  value={formData.brand_name}
+                  onChange={handleChange}
+                  placeholder="Enter brand name (e.g., Chanel, Dior)"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Minimum Stock
                 </label>
                 <input
                   type="number"
@@ -245,20 +278,6 @@ const AddProduct = () => {
                   onChange={handleChange}
                   placeholder="Minimum stock alert level (e.g., 5)"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Minimum Stock
-                </label>
-                <input
-                  type="text"
-                  name="brand_name"
-                  value={formData.brand_name}
-                  onChange={handleChange}
-                  placeholder="Enter brand name (e.g., Chanel, Dior)"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  required
                 />
               </div>
             </div>
@@ -273,14 +292,14 @@ const AddProduct = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Brand Name
+                  Fragrance Notes
                 </label>
                 <input
                   type="text"
                   name="notes"
                   value={formData.notes}
                   onChange={handleChange}
-                  placeholder="Enter brand name (e.g., Chanel, Dior)"
+                  placeholder="Enter fragrance notes (e.g., Rose, Vanilla, Musk)"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
@@ -381,6 +400,27 @@ const AddProduct = () => {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Testers */}
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Product Testers</h2>
+              <button type="button" onClick={addTester} className="bg-green-600 text-white px-3 py-1 rounded-md text-sm hover:bg-green-700">+ Add Tester</button>
+            </div>
+            {testers.map((tester, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4 mb-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-medium">Tester {index + 1}</h3>
+                  {testers.length > 1 && <button type="button" onClick={() => removeTester(index)} className="text-red-600 text-sm">Remove</button>}
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <input type="text" value={tester.name} onChange={(e) => updateTester(index, 'name', e.target.value)} placeholder="Tester name" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+                  <input type="number" value={tester.price} onChange={(e) => updateTester(index, 'price', e.target.value)} placeholder="Price (USD)" step="0.01" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+                </div>
+                <input type="file" accept="image/*" onChange={(e) => updateTester(index, 'image', e.target.files[0])} className="w-full text-sm" />
+              </div>
+            ))}
           </div>
 
           {/* Buttons */}

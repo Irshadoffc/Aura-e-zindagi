@@ -20,7 +20,9 @@ import api from "../api/Axios";
 const ProductDetail = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
-  const product = state?.product;
+  const { id } = useParams();
+  const [product, setProduct] = useState(state?.product || null);
+  const [loading, setLoading] = useState(!state?.product);
   
 
   const [showCartDrawer, setShowCartDrawer] = useState(false);
@@ -37,16 +39,47 @@ const ProductDetail = () => {
   // For tasters selection
   const [selectedTaster, setSelectedTaster] = useState(null);
 
+  // Fetch product with testers if not available from state
+  useEffect(() => {
+    if (!product || !product.testers) {
+      fetchProduct();
+    }
+  }, [id]);
+
+  const fetchProduct = async () => {
+    try {
+      const response = await api.get(`/products/${id}`);
+      setProduct(response.data.product);
+    } catch (error) {
+      console.error('Error fetching product:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-20 text-gray-600">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <p className="mt-2">Loading product...</p>
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="text-center py-20 text-gray-600">Product not found.</div>
     );
   }
 
+  const productImage = product.image ? 
+    (product.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${product.image}` : `/${product.image}`) 
+    : '/Images/Card-1.webp';
+  
   const images =
     product.images && product.images.length > 0
       ? product.images
-      : [product.image, product.image, product.image, product.image];
+      : [productImage, productImage, productImage, productImage];
 
   const basePrice = parseFloat(String(product.price).replace(/[^0-9.]/g, '')) || 0;
   const priceMap = {
@@ -168,36 +201,48 @@ const ProductDetail = () => {
     }
   };
 
-  // Taster products
-  const tasters = [
-    { id: "taster1", name: "Taster 1", image: "/Images/WhatsApp Image 2025-07-08 at 11.12.23 PM.webp", price: 500 },
-    { id: "taster2", name: "Taster 2", image: "/Images/WhatsApp Image 2025-07-08 at 11.13.39 PM.webp", price: 700 },
-  ];
+  // Get testers from product data
+  const tasters = product.testers || [];
 
   // Add selected taster to cart
-  const handleAddTasterToCart = () => {
+  const handleAddTasterToCart = async () => {
     if (!selectedTaster) {
       alert("Please select a taster!");
       return;
     }
 
-    const tasterItem = {
-      ...selectedTaster,
-      selectedSize: "5 ml",
-      quantity: 1,
-      basePrice: selectedTaster.price,
-      totalPrice: selectedTaster.price,
-    };
+    const user = localStorage.getItem('user');
+    if (!user) {
+      navigate('/login');
+      return;
+    }
 
-    const updatedCart = [...cartItems, tasterItem];
-    setCartItems(updatedCart);
-    localStorage.setItem("cartItems", JSON.stringify(updatedCart));
-    
-    // Dispatch custom event for cart update
-    window.dispatchEvent(new Event("cartUpdated"));
-    
-    setShowCartDrawer(true);
-    setSelectedTaster(null);
+    try {
+      await api.post('/cart', {
+        product_id: product.id,
+        tester_id: selectedTaster.id,
+        size: "5 ml",
+        quantity: 1,
+        price: selectedTaster.price
+      });
+      
+      toast.success('✅ Tester added to cart!', {
+        position: 'top-right',
+        autoClose: 2000,
+      });
+      
+      setShowCartDrawer(true);
+      setSelectedTaster(null);
+      
+      // Dispatch custom event for cart update
+      window.dispatchEvent(new Event("cartUpdated"));
+    } catch (error) {
+      console.error('Error adding tester to cart:', error);
+      toast.error('❌ Failed to add tester to cart', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+    }
   };
 
   return (
@@ -345,15 +390,18 @@ const ProductDetail = () => {
                       className="p-5 rounded-lg flex flex-col cursor-pointer transition hover:shadow-lg min-h-[350px]"
                     >
                       <img
-                        src={taster.image}
+                        src={taster.image ? 
+                          (taster.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${taster.image}` : `/${taster.image}`) 
+                          : '/Images/WhatsApp Image 2025-07-08 at 11.12.23 PM.webp'
+                        }
                         alt={taster.name}
                         className="w-full h-56 object-cover rounded-lg mb-4"
                       />
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-medium text-lg">{taster.name}</span>
-                        <span className="font-semibold text-lg">PKR {(taster.price * 280).toLocaleString()}</span>
+                        <span className="font-semibold text-lg">PKR {(parseFloat(taster.price) * 280).toLocaleString()}</span>
                       </div>
-                      <span className="text-sm text-gray-500 mb-4">5 ml</span>
+                      <span className="text-sm text-gray-500 mb-4">{taster.size || '5 ml'}</span>
 
                       {/* Checkbox */}
                       <label className="flex items-center gap-2 mt-auto">
@@ -399,8 +447,8 @@ const ProductDetail = () => {
                 </button>
                 {descriptionOpen && (
                   <div className="pb-4 text-sm text-gray-600 leading-relaxed">
-                    {product.longDescription ||
-                      "Crafted with precision and quality materials, offering both durability and luxury."}
+                    {product.description || product.longDescription ||
+                      "No description available for this product."}
                   </div>
                 )}
               </div>

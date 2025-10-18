@@ -1,7 +1,8 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CustomerActions from "../../desktop/customer/CustomerActionsDesktop";
 import CustomersMobile from "../../mobile/customer/CustomersMobile";
+import api from "../../../api/Axios";
 
 export default function CustomersDesktop() {
   const [showSortSidebar, setShowSortSidebar] = useState(false);
@@ -9,31 +10,32 @@ export default function CustomersDesktop() {
   const [sortOrder, setSortOrder] = useState("desc");
   const [isEditMode, setIsEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
 
-  const customers = [
-    {
-      id: 1,
-      customer: "Ahsan Jamil",
-      location: "Lahore, Pakistan",
-      ordersCount: 5,
-      amountSpent: "Rs 3,500.00",
-    },
-    {
-      id: 2,
-      customer: "Saad Anjum",
-      location: "Lahore, Pakistan",
-      ordersCount: 3,
-      amountSpent: "Rs 1,800.00",
-    },
-    {
-      id: 3,
-      customer: "Hira Ahmed",
-      location: "Multan, Pakistan",
-      ordersCount: 2,
-      amountSpent: "Rs 2,200.00",
-    },
-  ];
+  const fetchCustomers = async () => {
+    try {
+      const response = await api.get('/customers');
+      const apiCustomers = response.data.customers.map(customer => ({
+        id: customer.id,
+        customer: customer.name,
+        location: `${customer.city}, Pakistan`,
+        ordersCount: customer.total_orders,
+        amountSpent: `Rs ${(customer.total_spent * 280).toLocaleString()}.00`,
+        email: customer.email,
+        phone: customer.phone
+      }));
+      setCustomers(apiCustomers);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredCustomers = customers.filter((c) =>
     c.customer.toLowerCase().includes(searchTerm.toLowerCase())
@@ -174,7 +176,12 @@ export default function CustomersDesktop() {
         </div>
 
         {/* Table */}
-        {!isEditMode ? (
+        {loading ? (
+          <div className="p-8 text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <p className="mt-2 text-gray-600">Loading customers...</p>
+          </div>
+        ) : !isEditMode ? (
           <table className="min-w-full text-left text-sm text-gray-700">
             <thead className="bg-gray-100 border-b border-gray-200 text-gray-600 text-xs">
               <tr>
@@ -182,6 +189,8 @@ export default function CustomersDesktop() {
                   <input type="checkbox" className="cursor-pointer" />
                 </th>
                 <th className="p-3">Customer</th>
+                <th className="p-3">Email</th>
+                <th className="p-3">Phone</th>
                 <th className="p-3">Location</th>
                 <th className="p-3">Orders</th>
                 <th className="p-3">Amount Spent</th>
@@ -194,7 +203,8 @@ export default function CustomersDesktop() {
                     <input type="checkbox" className="cursor-pointer" />
                   </td>
                   <td className="p-3 font-medium text-gray-600">{c.customer}</td>
-
+                  <td className="p-3 text-gray-500">{c.email}</td>
+                  <td className="p-3 text-gray-500">{c.phone}</td>
                   <td className="p-3">{c.location}</td>
                   <td className="p-3 font-medium">{c.ordersCount}</td>
                   <td className="p-3 font-medium">{c.amountSpent}</td>

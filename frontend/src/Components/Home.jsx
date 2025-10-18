@@ -1,44 +1,25 @@
-import React from 'react';
-
-// HomePage component for Aura E Zindagi
-// Drop this file into a Vite + React + Tailwind project (e.g. src/pages/Homepage.jsx)
-// This component is self-contained and uses Tailwind utility classes.
-
-const products = [
-  {
-    id: 9,
-    title: 'Tycoon Eau de Parfum for Men',
-    price: 'Rs.2,990.00',
-    oldPrice: 'Rs.3,499.00',
-    img: '/images/tycoon.jpg',
-    badge: 'Save Rs.509',
-  },
-  {
-    id: 10,
-    title: 'Solvik Eau de Parfum for Men',
-    price: 'Rs.2,999.00',
-    img: '/images/solvik.jpg',
-    badge: '',
-  },
-  {
-    id: 11,
-    title: 'Ashbourne Eau de Perfume For men',
-    price: 'Rs.2,499.00',
-    oldPrice: 'Rs.2,999.00',
-    img: '/images/ashbourne.jpg',
-    badge: 'Save Rs.500',
-  },
-  {
-    id: 12,
-    title: 'Mafioso Eau de perfume for men',
-    price: 'Rs.2,499.00',
-    oldPrice: 'Rs.2,999.00',
-    img: '/images/mafioso.jpg',
-    badge: 'Sold Out',
-  },
-];
+import React, { useState, useEffect } from 'react';
+import api from '../api/Axios';
 
 export default function HomePage() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await api.get('/products');
+      setProducts(response.data.products || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white text-gray-900 antialiased">
       {/* Top banner */}
@@ -110,29 +91,49 @@ export default function HomePage() {
           <a href="#" className="text-sm underline">View all</a>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {products.map((p) => (
-            <article key={p.id} className="border rounded-lg overflow-hidden group">
-              <div className="relative">
-                <img src={p.img} alt={p.title} className="w-full h-56 object-cover" />
-                {p.badge && (
-                  <span className="absolute left-3 top-3 bg-red-600 text-white px-2 py-1 text-xs rounded">{p.badge}</span>
-                )}
-              </div>
-              <div className="p-4">
-                <h3 className="font-medium text-sm mb-2">{p.title}</h3>
-                <div className="flex items-center gap-2">
-                  <div className="text-lg font-semibold">{p.price}</div>
-                  {p.oldPrice && <div className="text-sm text-gray-400 line-through">{p.oldPrice}</div>}
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <p className="mt-2 text-gray-600">Loading products...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {products.slice(0, 4).map((p) => (
+              <article key={p.id} className="border rounded-lg overflow-hidden group">
+                <div className="relative">
+                  <img 
+                    src={p.image ? 
+                      (p.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${p.image}` : `/${p.image}`) 
+                      : '/Images/Card-1.webp'
+                    } 
+                    alt={p.name} 
+                    className="w-full h-56 object-cover" 
+                  />
+                  {p.discount_percentage > 0 && (
+                    <span className="absolute left-3 top-3 bg-red-600 text-white px-2 py-1 text-xs rounded">
+                      Save {p.discount_percentage}%
+                    </span>
+                  )}
                 </div>
-                <div className="mt-4 flex gap-2">
-                  <button className="flex-1 px-3 py-2 border rounded">View</button>
-                  <button className="px-3 py-2 bg-black text-white rounded">Add</button>
+                <div className="p-4">
+                  <h3 className="font-medium text-sm mb-2">{p.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <div className="text-lg font-semibold">Rs.{(parseFloat(p.price) * 280).toFixed(0)}</div>
+                    {p.discount_percentage > 0 && (
+                      <div className="text-sm text-gray-400 line-through">
+                        Rs.{(parseFloat(p.original_price || p.price) * 280).toFixed(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <button className="flex-1 px-3 py-2 border rounded">View</button>
+                    <button className="px-3 py-2 bg-black text-white rounded">Add</button>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* About / Best Performing */}

@@ -25,7 +25,8 @@ export default function Products() {
 
   const fetchProducts = async () => {
     try {
-      const response = await api.get('/products');
+      const response = await api.get('/products?t=' + Date.now());
+      console.log('Products data:', response.data.products);
       setProducts(response.data.products || []);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -200,12 +201,13 @@ export default function Products() {
                   </td>
                   <td className="p-3 border-r border-gray-200">{p.brand_name}</td>
                   <td className="p-3 border-r border-gray-200">${p.price}</td>
-                  <td className="p-3 border-r border-gray-200">{p.stock_quantity}</td>
+                  <td className="p-3 border-r border-gray-200">{p.stock_quantity || 'N/A'}</td>
                   <td className="p-3 border-r border-gray-200">
                     <span className={`px-2 py-1 rounded text-xs ${
-                      p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      (p.stock_quantity === 0 || p.stock_quantity === '0') ? 'bg-red-100 text-red-700' :
+                      (p.status || 'active') === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                     }`}>
-                      {p.status}
+                      {(p.stock_quantity === 0 || p.stock_quantity === '0') ? 'inactive' : (p.status || 'active')}
                     </span>
                   </td>
                   <td className="p-3">{p.category}</td>

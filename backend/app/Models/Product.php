@@ -31,4 +31,9 @@ class Product extends Model
         'stock_quantity' => 'integer',
         'minimum_stock' => 'integer',
     ];
+
+    public function testers()
+    {
+        return $this->hasMany(Tester::class);
+    }
 }

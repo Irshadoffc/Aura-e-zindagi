@@ -1,6 +1,59 @@
 import { FiEdit2, FiArrowDownRight } from "react-icons/fi";
+import { useState } from "react";
 
-export default function DeskGraph({ tabs = [], activeTab, setActiveTab }) {
+export default function DeskGraph({ tabs = [], activeTab, setActiveTab, analyticsData, selectedMonth, selectedYear, onMonthChange, onYearChange }) {
+  const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, data: null });
+  
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const relativeX = Math.max(0, Math.min(1, (x - 32) / (rect.width - 64)));
+    
+    if (analyticsData && analyticsData.daily_sales && analyticsData.daily_sales.length > 0) {
+      const dataIndex = Math.floor(relativeX * analyticsData.daily_sales.length);
+      if (dataIndex >= 0 && dataIndex < analyticsData.daily_sales.length) {
+        const data = analyticsData.daily_sales[dataIndex];
+        setTooltip({
+          show: true,
+          x: e.clientX,
+          y: e.clientY - 60,
+          data: {
+            date: new Date(data.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+            orders: data.orders || 0,
+            revenue: ((parseFloat(data.revenue || 0)) * 280).toFixed(0)
+          }
+        });
+      }
+    }
+  };
+  
+  const handleMouseLeave = () => {
+    setTooltip({ show: false, x: 0, y: 0, data: null });
+  };
+  
+  const generatePath = (type) => {
+    if (!analyticsData || !analyticsData.daily_sales || analyticsData.daily_sales.length === 0) {
+      return "M0,250 L800,250"; // Flat line at bottom when no data
+    }
+    
+    const sales = analyticsData.daily_sales;
+    const values = sales.map(s => type === 'revenue' ? parseFloat(s.revenue) : parseInt(s.orders));
+    const max = Math.max(...values) || 1;
+    const min = Math.min(...values) || 0;
+    
+    const points = values.map((val, i) => {
+      const x = (i / Math.max(values.length - 1, 1)) * 800;
+      const y = 250 - ((val - min) / Math.max(max - min, 1)) * 150;
+      return `${x},${y}`;
+    });
+    
+    return `M${points.join(' L')}`;
+  };
   return (
     <div className="bg-white rounded-2xl shadow-md p-4 w-full">
       {/* Tabs */}
@@ -44,13 +97,17 @@ export default function DeskGraph({ tabs = [], activeTab, setActiveTab }) {
       <div className="relative h-40 sm:h-48 md:h-56 lg:h-64">
         {/* Y-axis */}
         <div className="absolute left-[6px] md:left-[10px] top-0 bottom-[40px] flex flex-col justify-between text-gray-600 text-[10px] sm:text-xs">
-          <span>40</span>
-          <span>20</span>
+          <span>{analyticsData && analyticsData.daily_sales && analyticsData.daily_sales.length > 0 ? Math.max(...analyticsData.daily_sales.map(s => activeTab === 'sales' ? Math.round(parseFloat(s.revenue)) : parseInt(s.orders))) : 40}</span>
+          <span>{analyticsData && analyticsData.daily_sales && analyticsData.daily_sales.length > 0 ? Math.round(Math.max(...analyticsData.daily_sales.map(s => activeTab === 'sales' ? Math.round(parseFloat(s.revenue)) : parseInt(s.orders))) / 2) : 20}</span>
           <span>0</span>
         </div>
 
         {/* Graph Lines */}
-        <div className="absolute left-8 md:left-10 right-0 top-0 bottom-10">
+        <div 
+          className="absolute left-8 md:left-10 right-0 top-0 bottom-10"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
           <svg
             className="w-full h-full"
             viewBox="0 0 800 250"
@@ -87,37 +144,99 @@ export default function DeskGraph({ tabs = [], activeTab, setActiveTab }) {
               strokeWidth="2"
               strokeDasharray="4 4"
             />
+            
+            {/* Hover Dots */}
+            {tooltip.show && (
+              <>
+                <circle
+                  cx={tooltip.x}
+                  cy={activeTab === "sessions" ? 120 + Math.sin(tooltip.x / 100) * 30 :
+                      activeTab === "sales" ? 140 + Math.sin(tooltip.x / 80) * 20 :
+                      160 + Math.sin(tooltip.x / 90) * 25}
+                  r="4"
+                  fill="#3b82f6"
+                  stroke="white"
+                  strokeWidth="2"
+                />
+                <circle
+                  cx={tooltip.x}
+                  cy={activeTab === "sessions" ? 130 + Math.sin(tooltip.x / 120) * 25 :
+                      activeTab === "sales" ? 160 + Math.sin(tooltip.x / 70) * 15 :
+                      190 + Math.sin(tooltip.x / 85) * 20}
+                  r="4"
+                  fill="#3b82f6"
+                  stroke="white"
+                  strokeWidth="2"
+                />
+              </>
+            )}
           </svg>
         </div>
 
         {/* X-axis */}
         <div className="absolute bottom-6 left-8 md:left-10 right-0 flex justify-between text-[10px] sm:text-xs text-gray-500">
-          {Array.from({ length: 10 }, (_, i) => {
-            const baseDate = new Date("2025-08-28");
-            baseDate.setDate(baseDate.getDate() + i * 3);
-            return (
+          {analyticsData && analyticsData.daily_sales && analyticsData.daily_sales.length > 0 ? 
+            analyticsData.daily_sales.filter((_, i) => i % Math.ceil(analyticsData.daily_sales.length / 10) === 0).slice(0, 10).map((sale, i) => (
               <span key={i}>
-                {baseDate.toLocaleDateString("en-GB", {
+                {new Date(sale.date).toLocaleDateString("en-GB", {
                   day: "2-digit",
                   month: "short",
                 })}
               </span>
-            );
-          })}
+            )) :
+            Array.from({ length: 10 }, (_, i) => {
+              const baseDate = new Date(selectedYear, selectedMonth, 1 + i * 3);
+              return (
+                <span key={i}>
+                  {baseDate.toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                  })}
+                </span>
+              );
+            })
+          }
         </div>
 
-        {/* Date Range */}
+        {/* Month/Year Selector */}
         <div className="absolute bottom-0 text-gray-500 left-8 md:left-10 right-0 flex items-center justify-center text-[10px] sm:text-xs">
-          <div className="flex items-center w-full justify-center">
-            <span className="w-[15px] h-[2px] bg-blue-400"></span>
-            <div className="flex items-center gap-2 px-2 whitespace-nowrap font-medium">
-              <span>27 Aug – 26 Sep 2025</span>
-              <span className="mx-1">...</span>
-              <span>27 Jul – 26 Aug 2025</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <select 
+              value={selectedMonth} 
+              onChange={(e) => onMonthChange(parseInt(e.target.value))}
+              className="text-xs border rounded px-1"
+            >
+              {months.map((month, index) => (
+                <option key={index} value={index}>{month}</option>
+              ))}
+            </select>
+            <select 
+              value={selectedYear} 
+              onChange={(e) => onYearChange(parseInt(e.target.value))}
+              className="text-xs border rounded px-1"
+            >
+              {[2023, 2024, 2025].map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
+      
+      {/* Tooltip */}
+      {tooltip.show && tooltip.data && (
+        <div 
+          className="absolute bg-black text-white p-2 rounded text-xs z-50 pointer-events-none"
+          style={{ 
+            left: tooltip.x + 10, 
+            top: tooltip.y - 10
+          }}
+        >
+          <div>{tooltip.data.date}</div>
+          <div>Orders: {tooltip.data.orders}</div>
+          <div>Sales: Rs {tooltip.data.revenue}</div>
+        </div>
+      )}
     </div>
   );
 }

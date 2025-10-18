@@ -23,17 +23,28 @@ const ProductList = () => {
     try {
       const response = await api.get('/products');
       const apiProducts = response.data.products || [];
+      console.log('API Products:', apiProducts[0]); // Debug first product
       // Transform API data to match component structure
-      const transformedProducts = apiProducts.map(product => ({
-        id: product.id,
-        image: product.image ? 
-          (product.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${product.image}` : `/${product.image}`) 
-          : '/Images/Card-1.webp',
-        title: product.name,
-        category: product.category === 'mens' ? 'For Him' : product.category === 'womens' ? 'For Her' : 'Unisex',
-        price: `$${product.price}`,
-        rating: 4.5 // Default rating since not in database
-      }));
+      const transformedProducts = apiProducts.map(product => {
+        const currentPrice = parseFloat(product.price);
+        // Add test discount for demonstration - use 20% for all products
+        const discountPercentage = product.discount_percentage || 20;
+        const originalPrice = discountPercentage > 0 ? currentPrice / (1 - discountPercentage / 100) : null;
+        
+        return {
+          id: product.id,
+          image: product.image ? 
+            (product.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${product.image}` : `/${product.image}`) 
+            : '/Images/Card-1.webp',
+          title: product.name,
+          category: product.category === 'mens' ? 'For Him' : product.category === 'womens' ? 'For Her' : 'Unisex',
+          price: `$${currentPrice.toFixed(2)}`,
+          originalPrice: originalPrice ? `$${originalPrice.toFixed(2)}` : null,
+          discountPercentage: discountPercentage,
+          rating: 4.5 // Default rating since not in database
+        };
+      });
+      console.log('Transformed Products:', transformedProducts[0]); // Debug transformed product
       setProducts(transformedProducts);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -221,11 +232,24 @@ const ProductList = () => {
                 <h3 className="font-medium text-xs sm:text-base leading-tight">
                   {p.title}
                 </h3>
-                <p className="text-sm sm:text-lg font-semibold">{p.price}</p>
+                <div className="space-y-1">
+                  {p.originalPrice && p.discountPercentage > 0 ? (
+                    <>
+                      <p className="text-xs line-through text-gray-300">{p.originalPrice}</p>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs bg-red-500 px-1 rounded">{p.discountPercentage}% OFF</span>
+                      </div>
+                      <p className="text-sm sm:text-lg font-semibold text-green-400">{p.price}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm sm:text-lg font-semibold">{p.price}</p>
+                  )}
+                </div>
               </div>
 
               <div className="absolute bottom-2 right-2 flex rounded-full overflow-hidden bg-white shadow">
                 <span className="flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 hover:bg-gray-100">
+                  
                   <Box className="w-6 h-6 text-gray-700" />
                 </span>
                 <span className="flex items-center justify-center w-8 h-8 sm:w-12 sm:h-12 bg-black text-white hover:bg-gray-800 rounded-full">
