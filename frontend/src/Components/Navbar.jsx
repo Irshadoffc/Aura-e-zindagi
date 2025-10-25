@@ -34,8 +34,8 @@ const Navbar = () => {
       if (user) {
         try {
           const response = await api.get('/cart');
-          const totalQty = response.data.cart_items.reduce((sum, item) => sum + item.quantity, 0);
-          setCartCount(totalQty);
+          const uniqueItems = response.data.cart_items.length;
+          setCartCount(uniqueItems);
         } catch (error) {
           console.error('Error fetching cart count:', error);
           setCartCount(0);
@@ -45,8 +45,8 @@ const Navbar = () => {
         const saved = localStorage.getItem("cartItems");
         if (saved) {
           const items = JSON.parse(saved);
-          const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
-          setCartCount(totalQty);
+          const uniqueItems = items.length;
+          setCartCount(uniqueItems);
         } else {
           setCartCount(0);
         }

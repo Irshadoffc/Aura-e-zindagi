@@ -118,7 +118,6 @@ const ProductDetail = () => {
         autoClose: 2000,
       });
       
-      setShowCartDrawer(true);
       setQuantity(1);
       
       // Dispatch custom event for cart update
@@ -160,7 +159,6 @@ const ProductDetail = () => {
       localStorage.setItem("cartItems", JSON.stringify(updatedCart));
       
       window.dispatchEvent(new Event("cartUpdated"));
-      setShowCartDrawer(true);
       setQuantity(1);
     }
   };
@@ -231,7 +229,6 @@ const ProductDetail = () => {
         autoClose: 2000,
       });
       
-      setShowCartDrawer(true);
       setSelectedTaster(null);
       
       // Dispatch custom event for cart update

@@ -32,10 +32,15 @@ class OrderController extends Controller
             'payment_method' => 'required|string|in:COD,Bank Transfer'
         ]);
 
-        // Get user's cart items
-        $cartItems = Cart::with(['product', 'tester'])
-            ->where('user_id', $request->user()->id)
-            ->get();
+        // Get specific cart items if provided, otherwise get all
+        $cartQuery = Cart::with(['product', 'tester'])
+            ->where('user_id', $request->user()->id);
+            
+        if ($request->has('cart_item_ids') && !empty($request->cart_item_ids)) {
+            $cartQuery->whereIn('id', $request->cart_item_ids);
+        }
+        
+        $cartItems = $cartQuery->get();
 
         if ($cartItems->isEmpty()) {
             return response()->json([
@@ -52,8 +57,7 @@ class OrderController extends Controller
         // Add shipping and payment method charges
         $shipping = 500 / 280; // Convert PKR to USD
         $codCharges = $request->payment_method === 'COD' ? 250 / 280 : 0;
-        $discount = $totalAmount * 0.05;
-        $finalTotal = $totalAmount + $shipping + $codCharges - $discount;
+        $finalTotal = $totalAmount + $shipping + $codCharges;
 
         // Prepare order items
         $orderItems = $cartItems->map(function($item) {
@@ -101,8 +105,15 @@ class OrderController extends Controller
             ]
         );
 
-        // Clear cart
-        Cart::where('user_id', $request->user()->id)->delete();
+        // Clear only the specific cart items that were ordered
+        if ($request->has('cart_item_ids') && !empty($request->cart_item_ids)) {
+            Cart::where('user_id', $request->user()->id)
+                ->whereIn('id', $request->cart_item_ids)
+                ->delete();
+        } else {
+            // If no specific items provided, clear all cart (backward compatibility)
+            Cart::where('user_id', $request->user()->id)->delete();
+        }
 
         return response()->json([
             'status' => true,

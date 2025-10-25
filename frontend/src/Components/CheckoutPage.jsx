@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import api from "../api/Axios";
 import { toast } from 'react-toastify';
 
 // --------------------- CARD PAYMENT FORM ---------------------
-function CheckoutForm({ total, discount, onPlaceOrder, loading }) {
+function CheckoutForm({ total, onPlaceOrder, loading }) {
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvv, setCvv] = useState("");
@@ -131,7 +132,7 @@ function CheckoutForm({ total, discount, onPlaceOrder, loading }) {
         </div>
 
         <div className="flex justify-between mb-6 font-bold text-lg">
-          <span className="text-gray-900">Total (after 5% discount)</span>
+          <span className="text-gray-900">Total</span>
           <span className="text-blue-600">PKR {total.toLocaleString()}</span>
         </div>
 
@@ -152,8 +153,8 @@ function CheckoutForm({ total, discount, onPlaceOrder, loading }) {
 }
 
 // --------------------- COD PAYMENT FORM ---------------------
-function CODForm({ subtotal, shipping, codCharges, discount, onPlaceOrder, loading }) {
-  const total = subtotal + shipping + codCharges - discount;
+function CODForm({ subtotal, shipping, codCharges, onPlaceOrder, loading }) {
+  const total = subtotal + shipping + codCharges;
 
   return (
     <div className="border border-gray-200 rounded-xl p-6 bg-gray-50">
@@ -172,10 +173,7 @@ function CODForm({ subtotal, shipping, codCharges, discount, onPlaceOrder, loadi
           <span>COD Charges</span>
           <strong>+PKR {codCharges}</strong>
         </div>
-        <div className="flex justify-between text-green-600">
-          <span>Discount (5%)</span>
-          <strong>-PKR {discount.toLocaleString()}</strong>
-        </div>
+
         <hr className="border-gray-300 my-3" />
         <div className="flex justify-between font-bold text-lg">
           <span className="text-gray-900">Total</span>
@@ -196,6 +194,7 @@ function CODForm({ subtotal, shipping, codCharges, discount, onPlaceOrder, loadi
 
 // --------------------- MAIN CHECKOUT PAGE ---------------------
 export default function CheckoutPage() {
+  const location = useLocation();
   const [paymentMethod, setPaymentMethod] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -226,10 +225,19 @@ export default function CheckoutPage() {
 
   const fetchCartItems = async () => {
     try {
+      // Check if we have selected items from cart drawer
+      if (location.state && location.state.cartItems) {
+        console.log('Selected items:', location.state.cartItems);
+        setCartItems(location.state.cartItems);
+        setLoading(false);
+        return;
+      }
+      
       const user = localStorage.getItem('user');
       if (user) {
         const response = await api.get('/cart');
         const backendItems = response.data.cart_items.map(item => ({
+          cartId: item.id, // Store cart ID for deletion
           id: item.product.id,
           name: item.product.name,
           image: item.product.image ? 
@@ -248,6 +256,7 @@ export default function CheckoutPage() {
       }
     } catch (error) {
       console.error('Error fetching cart:', error);
+      toast.error('Failed to load cart items');
       // Fallback to localStorage
       const saved = localStorage.getItem("cartItems");
       setCartItems(saved ? JSON.parse(saved) : []);
@@ -258,13 +267,12 @@ export default function CheckoutPage() {
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const subtotalPKR = subtotal * 280;
-  const discount = subtotalPKR * 0.05;
   const shipping = 500;
   const codCharges = 250;
 
   const total = paymentMethod === "COD"
-    ? subtotalPKR + shipping + codCharges - discount
-    : subtotalPKR + shipping - discount;
+    ? subtotalPKR + shipping + codCharges
+    : subtotalPKR + shipping;
 
   const handlePlaceOrder = async (method = 'COD', cardData = null) => {
     if (!name || !phone || !email || !city || !streetname || !postalcode) {
@@ -274,8 +282,8 @@ export default function CheckoutPage() {
 
     setOrderLoading(true);
     try {
-      // First create the order
-      const orderResponse = await api.post('/orders', {
+      // Prepare order data
+      const orderData = {
         customer_name: name,
         customer_phone: phone,
         customer_email: email,
@@ -283,7 +291,16 @@ export default function CheckoutPage() {
         customer_address: streetname,
         customer_postal_code: postalcode,
         payment_method: method
-      });
+      };
+      
+      // Add cart item IDs if available (for selected items)
+      const cartItemIds = cartItems.filter(item => item.cartId).map(item => item.cartId);
+      if (cartItemIds.length > 0) {
+        orderData.cart_item_ids = cartItemIds;
+      }
+      
+      // First create the order
+      const orderResponse = await api.post('/orders', orderData);
       
       const orderId = orderResponse.data.order.id;
       
@@ -339,6 +356,22 @@ export default function CheckoutPage() {
       </div>
     );
   }
+  
+  if (cartItems.length === 0) {
+    return (
+      <div className="py-12 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 text-lg">No items in cart</p>
+          <button 
+            onClick={() => window.location.href = '/'}
+            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
+          >
+            Continue Shopping
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="py-12 bg-gray-50 min-h-screen">
@@ -385,8 +418,8 @@ export default function CheckoutPage() {
 
                 {paymentMethod && (
                   <div ref={formRef} className="mt-6">
-                    {paymentMethod === "e-Transfer" && <CheckoutForm total={total} discount={discount} onPlaceOrder={handlePlaceOrder} loading={orderLoading} />}
-                    {paymentMethod === "COD" && <CODForm subtotal={subtotalPKR} shipping={shipping} codCharges={codCharges} discount={discount} onPlaceOrder={() => handlePlaceOrder('COD')} loading={orderLoading} />}
+                    {paymentMethod === "e-Transfer" && <CheckoutForm total={total} onPlaceOrder={handlePlaceOrder} loading={orderLoading} />}
+                    {paymentMethod === "COD" && <CODForm subtotal={subtotalPKR} shipping={shipping} codCharges={codCharges} onPlaceOrder={() => handlePlaceOrder('COD')} loading={orderLoading} />}
                   </div>
                 )}
               </div>
@@ -429,10 +462,7 @@ export default function CheckoutPage() {
                       <span>PKR {codCharges.toLocaleString()}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm mb-1 text-green-600">
-                    <span>Discount (5%)</span>
-                    <span>-PKR {discount.toLocaleString()}</span>
-                  </div>
+
 
                   <hr className="border-gray-200 my-4" />
 

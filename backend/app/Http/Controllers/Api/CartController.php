@@ -32,8 +32,12 @@ class CartController extends Controller
 
         $existingItem = Cart::where('user_id', $request->user()->id)
             ->where('product_id', $request->product_id)
-            ->where('tester_id', $request->tester_id)
             ->where('size', $request->size)
+            ->when($request->tester_id, function($query) use ($request) {
+                return $query->where('tester_id', $request->tester_id);
+            }, function($query) {
+                return $query->whereNull('tester_id');
+            })
             ->first();
 
         if ($existingItem) {

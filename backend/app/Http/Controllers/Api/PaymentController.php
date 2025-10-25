@@ -43,10 +43,10 @@ class PaymentController extends Controller
 
     private function processHBLPayment($order, $request)
     {
-        // HBL Payment Gateway Integration with dummy credentials
+        // HBL Payment Gateway Integration
         $payload = [
-            'merchant_id' => 'HBL_MERCHANT_123456',
-            'merchant_key' => 'hbl_dummy_key_789',
+            'merchant_id' => env('HBL_MERCHANT_ID'),
+            'merchant_key' => env('HBL_MERCHANT_KEY'),
             'transaction_id' => 'TXN_' . time() . '_' . $order->id,
             'amount' => number_format($order->total_amount * 280, 2, '.', ''),
             'currency' => 'PKR',
@@ -126,7 +126,7 @@ class PaymentController extends Controller
 
     private function generateHBLSignature($data)
     {
-        $signatureString = $data['merchant_id'] . $data['amount'] . $data['order_id'] . 'HBL_SECRET_KEY_DUMMY';
+        $signatureString = $data['merchant_id'] . $data['amount'] . $data['order_id'] . env('HBL_SECRET_KEY');
         return hash('sha256', $signatureString);
     }
 

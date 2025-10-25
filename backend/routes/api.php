@@ -26,14 +26,14 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
     Route::post('/logout', [LoginController::class, 'logout']);
-    
+
     // Cart routes
     Route::apiResource('cart', \App\Http\Controllers\Api\CartController::class);
-    
+
     // Order routes
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/my-orders', [OrderController::class, 'userOrders']);
-    
+
     // Payment routes (extra security)
     Route::middleware(['throttle:3,1'])->group(function () {
         Route::post('/payment/process', [\App\Http\Controllers\Api\PaymentController::class, 'processCardPayment']);
@@ -41,11 +41,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/payment/hbl/callback', [\App\Http\Controllers\Api\PaymentController::class, 'hblCallback']);
     Route::post('/payment/jazzcash/callback', [\App\Http\Controllers\Api\PaymentController::class, 'jazzCashCallback']);
     Route::post('/payment/easypaisa/callback', [\App\Http\Controllers\Api\PaymentController::class, 'easyPaisaCallback']);
-    
+
     // Dashboard routes
     Route::get('/dashboard/analytics', [DashboardController::class, 'getAnalytics']);
     Route::get('/dashboard/realtime', [DashboardController::class, 'getRealtimeStats']);
-    
+
     // Product management routes (admin only)
     Route::middleware('role:admin')->group(function () {
         Route::post('/products', [ProductController::class, 'store']);
@@ -59,7 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/orders/{order}', [OrderController::class, 'update']);
         Route::delete('/orders/{order}', [OrderController::class, 'destroy']);
     });
-    
+
     // User-specific routes
     Route::get('/profile', function (Request $request) {
         return response()->json(['user' => $request->user()]);
