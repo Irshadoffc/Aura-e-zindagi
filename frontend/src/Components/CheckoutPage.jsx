@@ -3,154 +3,7 @@ import { useLocation } from "react-router-dom";
 import api from "../api/Axios";
 import { toast } from 'react-toastify';
 
-// --------------------- CARD PAYMENT FORM ---------------------
-function CheckoutForm({ total, onPlaceOrder, loading }) {
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvv, setCvv] = useState("");
-  const [cardholderName, setCardholderName] = useState("");
 
-  const formatCardNumber = (value) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = matches && matches[0] || '';
-    const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-    if (parts.length) {
-      return parts.join(' ');
-    } else {
-      return v;
-    }
-  };
-
-  const formatExpiry = (value) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    if (v.length >= 2) {
-      return v.substring(0, 2) + '/' + v.substring(2, 4);
-    }
-    return v;
-  };
-
-  const sanitizeInput = (value) => {
-    return value.replace(/<script[^>]*>.*?<\/script>/gi, '').replace(/[<>"']/g, '');
-  };
-
-  const handleCardNumberChange = (e) => {
-    const sanitized = sanitizeInput(e.target.value);
-    const formatted = formatCardNumber(sanitized);
-    if (formatted.length <= 19) {
-      setCardNumber(formatted);
-    }
-  };
-
-  const handleExpiryChange = (e) => {
-    const sanitized = sanitizeInput(e.target.value);
-    const formatted = formatExpiry(sanitized);
-    if (formatted.length <= 5) {
-      setExpiry(formatted);
-    }
-  };
-
-  const handleCvvChange = (e) => {
-    const sanitized = sanitizeInput(e.target.value);
-    const value = sanitized.replace(/[^0-9]/gi, '');
-    if (value.length <= 4) {
-      setCvv(value);
-    }
-  };
-
-  const handleCardholderNameChange = (e) => {
-    const sanitized = sanitizeInput(e.target.value);
-    const value = sanitized.replace(/[^a-zA-Z\s]/g, '');
-    if (value.length <= 50) {
-      setCardholderName(value);
-    }
-  };
-
-  return (
-    <div className="border border-gray-200 rounded-xl p-6 bg-gray-50">
-      <div className="border-b border-gray-200 mb-6 pb-3">
-        <button className="py-2 px-6 text-sm font-medium border-b-2 border-blue-600 text-blue-600">
-          Pay by Card
-        </button>
-      </div>
-
-      <div>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Card number
-          </label>
-          <input
-            type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="1234 1234 1234 1234"
-            value={cardNumber}
-            onChange={handleCardNumberChange}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Expiration date
-            </label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              placeholder="MM/YY"
-              value={expiry}
-              onChange={handleExpiryChange}
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              CVV
-            </label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-              placeholder="123"
-              value={cvv}
-              onChange={handleCvvChange}
-            />
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Cardholder name
-          </label>
-          <input
-            type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-            placeholder="John Doe"
-            value={cardholderName}
-            onChange={handleCardholderNameChange}
-          />
-        </div>
-
-        <div className="flex justify-between mb-6 font-bold text-lg">
-          <span className="text-gray-900">Total</span>
-          <span className="text-blue-600">PKR {total.toLocaleString()}</span>
-        </div>
-
-        <button 
-          onClick={() => onPlaceOrder('Bank Transfer', { cardNumber, expiry, cvv, cardholderName })}
-          disabled={loading || !cardNumber || !expiry || !cvv || !cardholderName}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition-colors disabled:opacity-50"
-        >
-          {loading ? 'Processing Payment...' : `Pay PKR ${total.toLocaleString()}`}
-        </button>
-      </div>
-
-      <div className="text-center mt-6 text-gray-500 text-xs">
-        Powered by Secure Payment Gateway
-      </div>
-    </div>
-  );
-}
 
 // --------------------- COD PAYMENT FORM ---------------------
 function CODForm({ subtotal, shipping, codCharges, onPlaceOrder, loading }) {
@@ -195,7 +48,7 @@ function CODForm({ subtotal, shipping, codCharges, onPlaceOrder, loading }) {
 // --------------------- MAIN CHECKOUT PAGE ---------------------
 export default function CheckoutPage() {
   const location = useLocation();
-  const [paymentMethod, setPaymentMethod] = useState("");
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -234,32 +87,47 @@ export default function CheckoutPage() {
       }
       
       const user = localStorage.getItem('user');
+      console.log('User from localStorage:', user);
+      
       if (user) {
         const response = await api.get('/cart');
-        const backendItems = response.data.cart_items.map(item => ({
-          cartId: item.id, // Store cart ID for deletion
-          id: item.product.id,
-          name: item.product.name,
-          image: item.product.image ? 
-            (item.product.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${item.product.image}` : `/${item.product.image}`) 
-            : '/Images/Card-1.webp',
-          selectedSize: item.size,
-          quantity: item.quantity,
-          basePrice: parseFloat(item.price),
-          totalPrice: parseFloat(item.price) * item.quantity
-        }));
-        setCartItems(backendItems);
+        console.log('Cart API response:', response.data);
+        
+        if (response.data.cart_items && response.data.cart_items.length > 0) {
+          const backendItems = response.data.cart_items.map(item => ({
+            cartId: item.id, // Store cart ID for deletion
+            id: item.product.id,
+            name: item.product.name,
+            image: item.product.image ? 
+              (item.product.image.startsWith('uploads/') ? `http://127.0.0.1:8000/${item.product.image}` : `/${item.product.image}`) 
+              : '/Images/Card-1.webp',
+            selectedSize: item.size,
+            quantity: item.quantity,
+            basePrice: parseFloat(item.price),
+            totalPrice: parseFloat(item.price) * item.quantity
+          }));
+          console.log('Processed cart items:', backendItems);
+          setCartItems(backendItems);
+        } else {
+          console.log('No cart items found in API response');
+          setCartItems([]);
+        }
       } else {
+        console.log('No user found, checking localStorage');
         // Fallback to localStorage
         const saved = localStorage.getItem("cartItems");
-        setCartItems(saved ? JSON.parse(saved) : []);
+        const localItems = saved ? JSON.parse(saved) : [];
+        console.log('LocalStorage cart items:', localItems);
+        setCartItems(localItems);
       }
     } catch (error) {
       console.error('Error fetching cart:', error);
       toast.error('Failed to load cart items');
       // Fallback to localStorage
       const saved = localStorage.getItem("cartItems");
-      setCartItems(saved ? JSON.parse(saved) : []);
+      const localItems = saved ? JSON.parse(saved) : [];
+      console.log('Fallback to localStorage:', localItems);
+      setCartItems(localItems);
     } finally {
       setLoading(false);
     }
@@ -270,13 +138,70 @@ export default function CheckoutPage() {
   const shipping = 500;
   const codCharges = 250;
 
-  const total = paymentMethod === "COD"
-    ? subtotalPKR + shipping + codCharges
-    : subtotalPKR + shipping;
+  const total = subtotalPKR + shipping + codCharges;
 
-  const handlePlaceOrder = async (method = 'COD', cardData = null) => {
-    if (!name || !phone || !email || !city || !streetname || !postalcode) {
-      toast.error('Please fill all customer information fields');
+  // Validation functions
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone) => {
+    const phoneRegex = /^[0-9+\-\s()]{10,15}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
+
+  const validatePostalCode = (code) => {
+    const postalRegex = /^[0-9]{5}$/;
+    return postalRegex.test(code);
+  };
+
+  const handlePlaceOrder = async () => {
+    // Basic field validation
+    if (!name.trim()) {
+      toast.error('Please enter your name');
+      return;
+    }
+    if (!phone.trim()) {
+      toast.error('Please enter your phone number');
+      return;
+    }
+    if (!email.trim()) {
+      toast.error('Please enter your email address');
+      return;
+    }
+    if (!city.trim()) {
+      toast.error('Please enter your city');
+      return;
+    }
+    if (!streetname.trim()) {
+      toast.error('Please enter your street address');
+      return;
+    }
+    if (!postalcode.trim()) {
+      toast.error('Please enter your postal code');
+      return;
+    }
+
+    // Format validation
+    if (!validateEmail(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (!validatePhone(phone)) {
+      toast.error('Please enter a valid phone number (10-15 digits)');
+      return;
+    }
+    if (!validatePostalCode(postalcode)) {
+      toast.error('Please enter a valid 5-digit postal code');
+      return;
+    }
+    if (name.trim().length < 2) {
+      toast.error('Name must be at least 2 characters long');
+      return;
+    }
+    if (city.trim().length < 2) {
+      toast.error('City name must be at least 2 characters long');
       return;
     }
 
@@ -284,67 +209,76 @@ export default function CheckoutPage() {
     try {
       // Prepare order data
       const orderData = {
-        customer_name: name,
-        customer_phone: phone,
-        customer_email: email,
-        customer_city: city,
-        customer_address: streetname,
-        customer_postal_code: postalcode,
-        payment_method: method
+        customer_name: name.trim(),
+        customer_phone: phone.trim(),
+        customer_email: email.trim().toLowerCase(),
+        customer_city: city.trim(),
+        customer_address: streetname.trim(),
+        customer_postal_code: postalcode.trim(),
+        payment_method: 'COD'
       };
       
       // Add cart item IDs if available (for selected items)
-      const cartItemIds = cartItems.filter(item => item.cartId).map(item => item.cartId);
+      const cartItemIds = cartItems.filter(item => item.cartId || item.id).map(item => item.cartId || item.id);
+      console.log('Cart items for order:', cartItems);
+      console.log('Cart item IDs being sent:', cartItemIds);
       if (cartItemIds.length > 0) {
         orderData.cart_item_ids = cartItemIds;
       }
       
-      // First create the order
+      // Create the order
       const orderResponse = await api.post('/orders', orderData);
-      
       const orderId = orderResponse.data.order.id;
       
-      // Show success message based on method
-      if (method === 'Bank Transfer' && cardData) {
-        const paymentResponse = await api.post('/payment/process', {
-          order_id: orderId,
-          card_number: cardData.cardNumber,
-          expiry: cardData.expiry,
-          cvv: cardData.cvv,
-          cardholder_name: cardData.cardholderName,
-          gateway: 'hbl'
-        });
-        
-        if (paymentResponse.data.status) {
-          toast.success('Payment successful! Order ID: ' + orderId);
-        } else {
-          toast.error('Payment failed. Please try again.');
-          return;
-        }
+      setOrderLoading(false);
+      
+      // Clear cart items from local state immediately
+      if (cartItemIds.length > 0) {
+        // Remove only the ordered items
+        const remainingItems = cartItems.filter(item => !cartItemIds.includes(item.cartId || item.id));
+        setCartItems(remainingItems);
       } else {
-        toast.success('Order placed successfully! Order ID: ' + orderId);
+        // Clear all items if no specific IDs
+        setCartItems([]);
       }
+      
+      toast.success(`🎉 Order placed successfully! Order ID: ${orderId}`);
+      
+      // Dispatch cart update event to refresh cart count
+      window.dispatchEvent(new Event("cartUpdated"));
       
       setTimeout(() => {
         window.location.href = '/';
-      }, 2000);
+      }, 3000);
+      
     } catch (error) {
       console.error('Error placing order:', error);
-      toast.error('Failed to place order. Please try again.');
-    } finally {
       setOrderLoading(false);
+      
+      if (error.response?.status === 422 && error.response?.data?.errors) {
+        // Handle validation errors from backend
+        const errors = error.response.data.errors;
+        Object.keys(errors).forEach(field => {
+          errors[field].forEach(message => {
+            toast.error(message);
+          });
+        });
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else if (error.response?.status === 401) {
+        toast.error('Please login to place an order');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else if (error.response?.status >= 500) {
+        toast.error('Server error. Please try again later.');
+      } else {
+        toast.error('Failed to place order. Please check your information and try again.');
+      }
     }
   };
 
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (formRef.current && !formRef.current.contains(event.target)) {
-        setPaymentMethod("");
-      }
-    }
-    if (paymentMethod) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [paymentMethod]);
+
 
   if (loading) {
     return (
@@ -358,10 +292,12 @@ export default function CheckoutPage() {
   }
   
   if (cartItems.length === 0) {
+    console.log('Cart is empty, cartItems:', cartItems);
     return (
       <div className="py-12 bg-gray-50 min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 text-lg">No items in cart</p>
+          <p className="text-gray-500 text-sm mt-2">Please add some items to your cart first</p>
           <button 
             onClick={() => window.location.href = '/'}
             className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
@@ -389,39 +325,71 @@ export default function CheckoutPage() {
                   Customer Information
                 </label>
                 <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
-                  <input className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none" type="text" placeholder="Enter your name" value={name} onChange={(e)=>setName(e.target.value)} />
-                  <input className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none" type="text" placeholder="Enter phone number" value={phone} onChange={(e)=>setPhone(e.target.value)} />
-                  <input className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none" type="email" placeholder="Enter your email" value={email} onChange={(e)=>setEmail(e.target.value)} />
-                  <input className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none" type="text" placeholder="Enter your city" value={city} onChange={(e)=>setCity(e.target.value)} />
-                  <input className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none" type="text" placeholder="Enter your street name or number" value={streetname} onChange={(e)=>setStreetname(e.target.value)} />
-                  <input className="w-full px-4 py-3 text-sm outline-none" type="text" placeholder="Enter postal code" value={postalcode} onChange={(e)=>setPostalcode(e.target.value)} />
+                  <input 
+                    className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500" 
+                    type="text" 
+                    placeholder="Enter your full name" 
+                    value={name} 
+                    onChange={(e)=>setName(e.target.value)}
+                    maxLength={255}
+                  />
+                  <input 
+                    className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500" 
+                    type="tel" 
+                    placeholder="Enter phone number (e.g., 03001234567)" 
+                    value={phone} 
+                    onChange={(e)=>setPhone(e.target.value)}
+                    maxLength={20}
+                  />
+                  <input 
+                    className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500" 
+                    type="email" 
+                    placeholder="Enter your email address" 
+                    value={email} 
+                    onChange={(e)=>setEmail(e.target.value)}
+                    maxLength={255}
+                  />
+                  <input 
+                    className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500" 
+                    type="text" 
+                    placeholder="Enter your city" 
+                    value={city} 
+                    onChange={(e)=>setCity(e.target.value)}
+                    maxLength={100}
+                  />
+                  <input 
+                    className="w-full border-b border-gray-200 px-4 py-3 text-sm outline-none focus:border-blue-500" 
+                    type="text" 
+                    placeholder="Enter your complete address" 
+                    value={streetname} 
+                    onChange={(e)=>setStreetname(e.target.value)}
+                    maxLength={255}
+                  />
+                  <input 
+                    className="w-full px-4 py-3 text-sm outline-none focus:border-blue-500" 
+                    type="text" 
+                    placeholder="Enter 5-digit postal code" 
+                    value={postalcode} 
+                    onChange={(e)=>setPostalcode(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                    maxLength={5}
+                  />
                 </div>
 
-                {/* PAYMENT OPTIONS */}
+                {/* PAYMENT METHOD - COD ONLY */}
                 <label className="block text-sm font-medium text-gray-600 mt-6 mb-3">
                   Payment Method
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    className={`h-16 border-2 font-medium flex items-center justify-center ${paymentMethod === "e-Transfer" ? "border-blue-600 bg-blue-50 text-blue-600" : "border-gray-100 bg-white text-gray-600"}`}
-                    onClick={() => setPaymentMethod("e-Transfer")}
-                  >
-                    Bank Transfer
-                  </button>
-                  <button
-                    className={`h-16 border-2 font-medium flex items-center justify-center ${paymentMethod === "COD" ? "border-blue-600 bg-blue-50 text-blue-600" : "border-gray-100 bg-white text-gray-600"}`}
-                    onClick={() => setPaymentMethod("COD")}
-                  >
-                    Cash on Delivery
-                  </button>
+                <div className="border border-gray-200 rounded-xl p-4 bg-blue-50">
+                  <div className="flex items-center">
+                    <div className="w-4 h-4 bg-blue-600 rounded-full mr-3"></div>
+                    <span className="font-medium text-blue-800">💵 Cash on Delivery</span>
+                  </div>
+                  <p className="text-sm text-blue-600 mt-2 ml-7">Pay when your order is delivered to your doorstep</p>
                 </div>
 
-                {paymentMethod && (
-                  <div ref={formRef} className="mt-6">
-                    {paymentMethod === "e-Transfer" && <CheckoutForm total={total} onPlaceOrder={handlePlaceOrder} loading={orderLoading} />}
-                    {paymentMethod === "COD" && <CODForm subtotal={subtotalPKR} shipping={shipping} codCharges={codCharges} onPlaceOrder={() => handlePlaceOrder('COD')} loading={orderLoading} />}
-                  </div>
-                )}
+                <div className="mt-6">
+                  <CODForm subtotal={subtotalPKR} shipping={shipping} codCharges={codCharges} onPlaceOrder={() => handlePlaceOrder()} loading={orderLoading} />
+                </div>
               </div>
 
               {/* RIGHT SUMMARY */}
@@ -456,12 +424,10 @@ export default function CheckoutPage() {
                     <span>Shipping</span>
                     <span>PKR {shipping.toLocaleString()}</span>
                   </div>
-                  {paymentMethod === "COD" && (
-                    <div className="flex justify-between text-sm mb-1 text-red-600">
-                      <span>COD Charges</span>
-                      <span>PKR {codCharges.toLocaleString()}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between text-sm mb-1 text-red-600">
+                    <span>COD Charges</span>
+                    <span>PKR {codCharges.toLocaleString()}</span>
+                  </div>
 
 
                   <hr className="border-gray-200 my-4" />

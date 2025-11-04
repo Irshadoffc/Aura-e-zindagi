@@ -29,7 +29,7 @@ class OrderController extends Controller
             'customer_city' => 'required|string|max:100',
             'customer_address' => 'required|string|max:255',
             'customer_postal_code' => 'required|string|max:20',
-            'payment_method' => 'required|string|in:COD,Bank Transfer'
+            'payment_method' => 'required|string|in:COD'
         ]);
 
         // Get specific cart items if provided, otherwise get all
@@ -107,12 +107,14 @@ class OrderController extends Controller
 
         // Clear only the specific cart items that were ordered
         if ($request->has('cart_item_ids') && !empty($request->cart_item_ids)) {
-            Cart::where('user_id', $request->user()->id)
+            $deletedCount = Cart::where('user_id', $request->user()->id)
                 ->whereIn('id', $request->cart_item_ids)
                 ->delete();
+            \Log::info('Deleted cart items', ['count' => $deletedCount, 'ids' => $request->cart_item_ids]);
         } else {
             // If no specific items provided, clear all cart (backward compatibility)
-            Cart::where('user_id', $request->user()->id)->delete();
+            $deletedCount = Cart::where('user_id', $request->user()->id)->delete();
+            \Log::info('Deleted all cart items', ['count' => $deletedCount]);
         }
 
         return response()->json([

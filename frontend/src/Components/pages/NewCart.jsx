@@ -173,7 +173,12 @@ const CartDrawer = ({ onClose }) => {
       alert('Please select at least one item to checkout');
       return;
     }
-    navigate("/checkout", { state: { cartItems: selectedCartItems } });
+    // Ensure cart items have the correct structure for checkout
+    const checkoutItems = selectedCartItems.map(item => ({
+      ...item,
+      cartId: item.id // Map the cart ID correctly
+    }));
+    navigate("/checkout", { state: { cartItems: checkoutItems } });
     onClose();
   };
 

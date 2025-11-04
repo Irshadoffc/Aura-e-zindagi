@@ -34,13 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/my-orders', [OrderController::class, 'userOrders']);
 
-    // Payment routes (extra security)
-    Route::middleware(['throttle:3,1'])->group(function () {
-        Route::post('/payment/process', [\App\Http\Controllers\Api\PaymentController::class, 'processCardPayment']);
-    });
-    Route::post('/payment/hbl/callback', [\App\Http\Controllers\Api\PaymentController::class, 'hblCallback']);
-    Route::post('/payment/jazzcash/callback', [\App\Http\Controllers\Api\PaymentController::class, 'jazzCashCallback']);
-    Route::post('/payment/easypaisa/callback', [\App\Http\Controllers\Api\PaymentController::class, 'easyPaisaCallback']);
+
 
     // Dashboard routes
     Route::get('/dashboard/analytics', [DashboardController::class, 'getAnalytics']);
