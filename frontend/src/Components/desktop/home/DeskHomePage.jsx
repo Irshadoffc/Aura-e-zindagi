@@ -38,7 +38,7 @@ const DeskHomePage = () => {
     { 
       id: "sales", 
       title: "Total sales", 
-      value: monthlyTotals.revenue > 0 ? `Rs ${(monthlyTotals.revenue * 280).toFixed(0)} ` : "Rs 0 ", 
+      value: monthlyTotals.revenue > 0 ? `Rs ${monthlyTotals.revenue.toFixed(0)} ` : "Rs 0 ", 
       editable: false 
     },
     { 

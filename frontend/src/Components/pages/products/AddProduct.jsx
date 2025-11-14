@@ -11,9 +11,6 @@ const AddProduct = () => {
     description: '',
     brand_name: '',
     category: 'mens',
-    fragrance_type: 'EDP',
-    notes: '',
-    original_price: '',
     price: '',
     discount_percentage: 0,
     stock_quantity: '',
@@ -23,23 +20,11 @@ const AddProduct = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [testers, setTesters] = useState([{ name: '', price: '', image: null }]);
+  const [volumes, setVolumes] = useState(['']);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    const updatedData = { ...formData, [name]: value };
-    
-    // Auto-calculate price when original_price or discount changes
-    if (name === 'original_price' || name === 'discount_percentage') {
-      const originalPrice = name === 'original_price' ? parseFloat(value) : parseFloat(formData.original_price);
-      const discount = name === 'discount_percentage' ? parseFloat(value) : parseFloat(formData.discount_percentage);
-      
-      if (originalPrice && discount >= 0) {
-        const discountedPrice = originalPrice - (originalPrice * discount / 100);
-        updatedData.price = discountedPrice.toFixed(2);
-      }
-    }
-    
-    setFormData(updatedData);
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleImageChange = (e) => {
@@ -67,6 +52,14 @@ const AddProduct = () => {
     setTesters(updated);
   };
 
+  const addVolume = () => setVolumes([...volumes, '']);
+  const removeVolume = (index) => setVolumes(volumes.filter((_, i) => i !== index));
+  const updateVolume = (index, value) => {
+    const updated = [...volumes];
+    updated[index] = value;
+    setVolumes(updated);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -83,6 +76,10 @@ const AddProduct = () => {
       if (selectedImage) {
         formDataToSend.append('image', selectedImage);
       }
+
+      // Append volumes with ml suffix
+      const validVolumes = volumes.filter(v => v.trim()).map(v => `${v}ml`);
+      formDataToSend.append('volumes', JSON.stringify(validVolumes));
 
       // Append testers
       testers.forEach((tester, index) => {
@@ -110,15 +107,13 @@ const AddProduct = () => {
         description: '',
         brand_name: '',
         category: 'mens',
-        fragrance_type: 'EDP',
-        notes: '',
-        original_price: '',
         price: '',
         discount_percentage: 0,
         stock_quantity: '',
         minimum_stock: 10
       });
       setTesters([{ name: '', price: '', image: null }]);
+      setVolumes(['']);
       setSelectedImage(null);
       setImagePreview(null);
       
@@ -198,7 +193,7 @@ const AddProduct = () => {
           {/* Category */}
           <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-lg font-semibold mb-4">Category</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Perfume Category
@@ -216,29 +211,14 @@ const AddProduct = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Perfume Volume (ml)
-                </label>
-                <select 
-                  name="fragrance_type"
-                  value={formData.fragrance_type}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="EDP">Eau de Parfum (EDP)</option>
-                  <option value="EDT">Eau de Toilette (EDT)</option>
-                  <option value="EDC">Eau de Cologne (EDC)</option>
-                  <option value="Oil">Perfume Oil</option>
-                </select>
-              </div>
+
             </div>
           </div>
 
           {/* Stock */}
           <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-lg font-semibold mb-4">Manage Stock</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Stock Keeping Unit
@@ -267,6 +247,8 @@ const AddProduct = () => {
                   required
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Minimum Stock
@@ -280,76 +262,55 @@ const AddProduct = () => {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Available Volumes</label>
+                  <button type="button" onClick={addVolume} className="bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700">+ Add</button>
+                </div>
+                {volumes.map((volume, index) => (
+                  <div key={index} className="flex gap-2 mb-2 items-center">
+                    <div className="flex items-center">
+                      <input
+                        type="number"
+                        value={volume}
+                        onChange={(e) => updateVolume(index, e.target.value)}
+                        placeholder="50"
+                        min="1"
+                        className="w-16 border border-gray-300 rounded-l-md px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      <span className="bg-gray-100 border border-l-0 border-gray-300 rounded-r-md px-2 py-2 text-sm text-gray-600">ml</span>
+                    </div>
+                    {volumes.length > 1 && (
+                      <button type="button" onClick={() => removeVolume(index)} className="text-red-600 text-xs hover:bg-red-50 rounded px-1">×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
         {/* RIGHT SIDE */}
         <div className="space-y-6">
-          {/* Product Details */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-lg font-semibold mb-4">Perfume Details</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fragrance Notes
-                </label>
-                <input
-                  type="text"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  placeholder="Enter fragrance notes (e.g., Rose, Vanilla, Musk)"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fragrance Type
-                </label>
-                <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                  <option>Eau de Parfum (EDP)</option>
-                  <option>Eau de Toilette (EDT)</option>
-                  <option>Eau de Cologne (EDC)</option>
-                  <option>Perfume Oil</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Original Price
-                </label>
-                <input
-                  type="number"
-                  name="original_price"
-                  value={formData.original_price || ''}
-                  onChange={handleChange}
-                  placeholder="Enter original price (e.g., 100.00)"
-                  step="0.01"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Pricing */}
           <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-lg font-semibold mb-4">Pricing</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Final Price (Auto-calculated)
+                  Original Price (PKR)
                 </label>
                 <input
                   type="number"
                   name="price"
                   value={formData.price}
-                  placeholder="Auto-calculated price"
-                  step="0.01"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-100 cursor-not-allowed"
-                  readOnly
+                  onChange={handleChange}
+                  placeholder="Enter original price in PKR (e.g., 2500)"
+                  step="1"
+                  min="0"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
                 />
               </div>
               <div>
@@ -365,6 +326,17 @@ const AddProduct = () => {
                   min="0"
                   max="100"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Final Price (PKR)
+                </label>
+                <input
+                  type="number"
+                  value={formData.price && formData.discount_percentage ? (formData.price - (formData.price * formData.discount_percentage / 100)).toFixed(0) : formData.price || ''}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-100"
+                  readOnly
                 />
               </div>
             </div>
@@ -416,7 +388,7 @@ const AddProduct = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <input type="text" value={tester.name} onChange={(e) => updateTester(index, 'name', e.target.value)} placeholder="Tester name" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
-                  <input type="number" value={tester.price} onChange={(e) => updateTester(index, 'price', e.target.value)} placeholder="Price (USD)" step="0.01" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+                  <input type="number" value={tester.price} onChange={(e) => updateTester(index, 'price', e.target.value)} placeholder="Price (PKR)" step="1" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
                 </div>
                 <input type="file" accept="image/*" onChange={(e) => updateTester(index, 'image', e.target.files[0])} className="w-full text-sm" />
               </div>

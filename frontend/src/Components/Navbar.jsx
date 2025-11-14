@@ -16,6 +16,7 @@ const Navbar = () => {
   const [showCart, setShowCart] = useState(false); // ✅ control CartDrawer visibility
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
   // Scroll shadow effect
@@ -108,6 +109,16 @@ const Navbar = () => {
     visible: { opacity: 1, x: 0, transition: { duration: 0.2 } },
   };
 
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      // Dispatch search event with query
+      window.dispatchEvent(new CustomEvent('searchProducts', { 
+        detail: { query: searchQuery.trim() } 
+      }));
+      setShowSearch(false); // Close mobile search
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await api.post('/logout');
@@ -144,12 +155,18 @@ const Navbar = () => {
           {/* Desktop Search */}
           <div className="hidden lg:flex items-center">
             <div className="w-[20vw] max-w-[520px] min-w-[280px] relative">
-              <div className="absolute inset-y-0 left-0 bg-yellow-400/95 hover:bg-yellow-400 px-4 flex items-center rounded-full">
+              <button 
+                onClick={handleSearch}
+                className="absolute inset-y-0 left-0 bg-yellow-400/95 hover:bg-yellow-400 px-4 flex items-center rounded-full cursor-pointer"
+              >
                 <FaSearch className="text-black" />
-              </div>
+              </button>
               <input
                 type="text"
                 placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 className="w-full bg-transparent border border-gray-700 text-white rounded-full pl-14 pr-14 py-2 text-sm outline-none placeholder-gray-300 focus:placeholder-transparent"
                 aria-label="Search"
               />
@@ -248,12 +265,18 @@ const Navbar = () => {
             className="lg:hidden px-4 pb-3 bg-black"
           >
             <div className="relative w-full">
-              <div className="absolute inset-y-0 left-0 bg-yellow-400/95 px-3 flex items-center rounded-full">
+              <button 
+                onClick={handleSearch}
+                className="absolute inset-y-0 left-0 bg-yellow-400/95 px-3 flex items-center rounded-full cursor-pointer"
+              >
                 <FaSearch className="text-black" />
-              </div>
+              </button>
               <input
                 type="text"
                 placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 autoFocus
                 className="w-full bg-transparent border border-gray-700 text-white rounded-full pl-12 pr-12 py-2 text-sm outline-none placeholder-gray-300 focus:placeholder-transparent"
                 aria-label="Mobile search input"

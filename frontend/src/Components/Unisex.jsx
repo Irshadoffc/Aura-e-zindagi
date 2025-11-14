@@ -141,7 +141,7 @@ export default function Unisex() {
 
                 <div className="absolute top-12 sm:top-14 left-2 sm:left-3 text-white drop-shadow max-w-[80%]">
                   <h3 className="font-medium text-sm sm:text-base leading-tight">{p.name}</h3>
-                  <p className="text-base sm:text-lg font-bold">${p.price}</p>
+                  <p className="text-base sm:text-lg font-bold">PKR {parseFloat(p.price).toLocaleString()}</p>
                 </div>
 
                 <div className="absolute bottom-2 sm:bottom-3 bg-white rounded-full right-2 sm:right-3 flex">

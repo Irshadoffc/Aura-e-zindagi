@@ -11,13 +11,63 @@ use Illuminate\Support\Facades\Cache;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $products = Cache::remember('products.all', 300, function () {
-            return Product::select('id', 'name', 'brand_name', 'category', 'price', 'stock_quantity', 'status', 'image', 'created_at')
-                ->orderBy('created_at', 'desc')
-                ->get();
+        $showAll = $request->query('show_all', false);
+        
+        $cacheKey = $showAll ? 'products.all.admin' : 'products.all.public';
+        
+        $products = Cache::remember($cacheKey, 300, function () use ($showAll) {
+            $query = Product::select('id', 'name', 'description', 'brand_name', 'category', 'price', 'discount_percentage', 'sku', 'stock_quantity', 'volumes', 'minimum_stock', 'status', 'image', 'created_at')
+                ->orderBy('created_at', 'desc');
+                
+            // Filter by status for public view
+            if (!$showAll) {
+                $query->where('status', 'active');
+            }
+            
+            return $query->get()
+                ->map(function ($product) {
+                    // Calculate stock status
+                    if ($product->stock_quantity <= 0) {
+                        $product->stock_status = 'out_of_stock';
+                    } elseif ($product->stock_quantity <= 10) { // Default minimum stock
+                        $product->stock_status = 'low_stock';
+                    } else {
+                        $product->stock_status = 'in_stock';
+                    }
+                    
+                    // Fix numeric brand names (data cleanup)
+                    if (is_numeric($product->brand_name)) {
+                        $product->brand_name = 'Unknown Brand';
+                    }
+                    
+                    // Add default status if not present
+                    if (!isset($product->status)) {
+                        $product->status = 'active';
+                    }
+                    
+                    return $product;
+                });
         });
+        
+        // Debug: Log products with numeric brand names
+        $productsWithNumericBrands = $products->filter(function($product) {
+            return is_numeric($product->brand_name);
+        });
+        
+        if ($productsWithNumericBrands->isNotEmpty()) {
+            \Log::warning('Products with numeric brand names found:', 
+                $productsWithNumericBrands->map(function($p) {
+                    return [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'brand_name' => $p->brand_name,
+                        'category' => $p->category
+                    ];
+                })->toArray()
+            );
+        }
         
         return response()->json([
             'status' => true,
@@ -31,9 +81,9 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'brand_name' => 'required|string|max:100',
             'category' => 'required|in:mens,womens,unisex,special_offer',
-            'fragrance_type' => 'required|in:EDP,EDT,EDC,Oil',
             'price' => 'required|numeric|min:0',
             'stock_quantity' => 'required|integer|min:0',
+            'volumes' => 'nullable|json',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
@@ -50,12 +100,11 @@ class ProductController extends Controller
             'description' => $request->description,
             'brand_name' => $request->brand_name,
             'category' => $request->category,
-            'fragrance_type' => $request->fragrance_type,
-            'notes' => $request->notes,
             'price' => $request->price,
             'discount_percentage' => $request->discount_percentage ?? 0,
             'sku' => 'SKU-' . strtoupper(Str::random(8)),
             'stock_quantity' => $request->stock_quantity,
+            'volumes' => $request->volumes,
             'minimum_stock' => $request->minimum_stock ?? 10,
             'status' => 'active',
             'image' => $imagePath,
@@ -108,25 +157,60 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
+        \Log::info('Update request data:', $request->all());
+        
         $request->validate([
-            'name' => 'required|string|max:255',
-            'brand_name' => 'required|string|max:100',
-            'category' => 'required|in:mens,womens,unisex,special_offer',
-            'fragrance_type' => 'required|in:EDP,EDT,EDC,Oil',
-            'price' => 'required|numeric|min:0',
-            'stock_quantity' => 'required|integer|min:0',
+            'name' => 'sometimes|required|string|max:255',
+            'brand_name' => 'sometimes|required|string|max:100',
+            'category' => 'sometimes|required|in:mens,womens,unisex,special_offer',
+            'price' => 'sometimes|required|numeric|min:0',
+            'stock_quantity' => 'sometimes|required|integer|min:0',
+            'minimum_stock' => 'sometimes|integer|min:0',
+            'discount_percentage' => 'sometimes|integer|min:0|max:100',
+            'volumes' => 'nullable|string',
+            'status' => 'sometimes|in:active,inactive',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
         ]);
 
-        $product->update($request->all());
+        $updateData = [];
+        
+        // Only update fields that are present in request
+        if ($request->filled('name')) $updateData['name'] = $request->name;
+        if ($request->filled('description')) $updateData['description'] = $request->description;
+        if ($request->filled('brand_name')) $updateData['brand_name'] = $request->brand_name;
+        if ($request->filled('category')) $updateData['category'] = $request->category;
+        if ($request->filled('price')) $updateData['price'] = $request->price;
+        if ($request->has('discount_percentage')) $updateData['discount_percentage'] = $request->discount_percentage;
+        if ($request->filled('stock_quantity')) $updateData['stock_quantity'] = $request->stock_quantity;
+        if ($request->has('minimum_stock')) $updateData['minimum_stock'] = $request->minimum_stock;
+        if ($request->filled('status')) $updateData['status'] = $request->status;
 
-        Cache::forget('products.all');
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = time() . '_' . $image->getClientOriginalName();
+            $image->move(public_path('uploads/products'), $imageName);
+            $updateData['image'] = 'uploads/products/' . $imageName;
+        }
+
+        // Handle volumes
+        if ($request->has('volumes')) {
+            $updateData['volumes'] = $request->volumes;
+        }
+
+        \Log::info('Update data:', $updateData);
+        
+        $product->update($updateData);
+
+        Cache::forget('products.all.admin');
+        Cache::forget('products.all.public');
         Cache::forget("product.{$product->id}");
         Cache::forget('collections.counts');
         
         return response()->json([
             'status' => true,
             'message' => 'Product updated successfully',
-            'product' => $product
+            'product' => $product->fresh()
         ]);
     }
 
@@ -134,7 +218,8 @@ class ProductController extends Controller
     {
         $product->delete();
 
-        Cache::forget('products.all');
+        Cache::forget('products.all.admin');
+        Cache::forget('products.all.public');
         Cache::forget("product.{$product->id}");
         Cache::forget('collections.counts');
         

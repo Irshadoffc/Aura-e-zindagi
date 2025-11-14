@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, ArrowUpRight, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import api from "../api/Axios";
 
 const ProductList = () => {
@@ -10,6 +12,7 @@ const ProductList = () => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [sortType, setSortType] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const navigate = useNavigate();
   const filterRef = useRef(null);
@@ -17,9 +20,20 @@ const ProductList = () => {
 
   useEffect(() => {
     fetchProducts();
+    
+    // Listen for search events from navbar
+    const handleSearch = (event) => {
+      setSearchQuery(event.detail.query);
+    };
+    
+    window.addEventListener('searchProducts', handleSearch);
+    
+    return () => {
+      window.removeEventListener('searchProducts', handleSearch);
+    };
   }, []);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (retryCount = 0) => {
     try {
       const response = await api.get('/products');
       const apiProducts = response.data.products || [];
@@ -38,8 +52,8 @@ const ProductList = () => {
             : '/Images/Card-1.webp',
           title: product.name,
           category: product.category === 'mens' ? 'For Him' : product.category === 'womens' ? 'For Her' : 'Unisex',
-          price: `$${currentPrice.toFixed(2)}`,
-          originalPrice: originalPrice ? `$${originalPrice.toFixed(2)}` : null,
+          price: `PKR ${currentPrice.toLocaleString()}`,
+          originalPrice: originalPrice ? `PKR ${originalPrice.toLocaleString()}` : null,
           discountPercentage: discountPercentage,
           rating: 4.5 // Default rating since not in database
         };
@@ -48,6 +62,29 @@ const ProductList = () => {
       setProducts(transformedProducts);
     } catch (error) {
       console.error('Error fetching products:', error);
+      
+      // Retry logic for timeout errors
+      if (error.code === 'ECONNABORTED' && retryCount < 2) {
+        toast.info(`⏳ Retrying connection... Attempt ${retryCount + 1}`, {
+          position: 'top-right',
+          autoClose: 2000,
+        });
+        setTimeout(() => fetchProducts(retryCount + 1), 2000);
+        return;
+      }
+      
+      // Show user-friendly error message
+      if (error.code === 'ECONNABORTED') {
+        toast.error('❌ Connection timeout. Please check if the backend server is running.', {
+          position: 'top-right',
+          autoClose: 5000,
+        });
+      } else {
+        toast.error('❌ Failed to load products. Please try again.', {
+          position: 'top-right',
+          autoClose: 3000,
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -67,11 +104,14 @@ const ProductList = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ✅ Filtering logic
-  const filteredProducts =
-    selectedCategory === "All"
-      ? products
-      : products.filter((p) => p.category === selectedCategory);
+  // ✅ Filtering logic (category + search)
+  const filteredProducts = products.filter((p) => {
+    const matchesCategory = selectedCategory === "All" || p.category === selectedCategory;
+    const matchesSearch = !searchQuery || 
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   // ✅ Sorting logic
   const sortedProducts = [...filteredProducts].sort((a, b) => {
@@ -108,8 +148,22 @@ const ProductList = () => {
           <div>
             <h2 className="text-lg sm:text-xl font-semibold">New Arrival</h2>
             <p className="text-gray-500 text-xs sm:text-sm">
-              {filteredProducts.length} Products
+              {filteredProducts.length} Products {searchQuery && `(searching for "${searchQuery}")`}
             </p>
+            {searchQuery && (
+              <button 
+                onClick={() => {
+                  setSearchQuery("");
+                  toast.info('🔍 Search cleared', {
+                    position: 'top-right',
+                    autoClose: 1500,
+                  });
+                }}
+                className="text-xs text-blue-600 hover:underline mt-1"
+              >
+                Clear search
+              </button>
+            )}
           </div>
 
           {/* ✅ Filter & Sort */}
@@ -130,6 +184,10 @@ const ProductList = () => {
                       onClick={() => {
                         setSelectedCategory("All");
                         setShowFilterDropdown(false);
+                        toast.info('📊 Showing all products', {
+                          position: 'top-right',
+                          autoClose: 1500,
+                        });
                       }}
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                     >
@@ -139,6 +197,10 @@ const ProductList = () => {
                       onClick={() => {
                         setSelectedCategory("For Him");
                         setShowFilterDropdown(false);
+                        toast.info('👨 Filtered by Men\'s products', {
+                          position: 'top-right',
+                          autoClose: 1500,
+                        });
                       }}
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                     >
@@ -148,6 +210,10 @@ const ProductList = () => {
                       onClick={() => {
                         setSelectedCategory("For Her");
                         setShowFilterDropdown(false);
+                        toast.info('👩 Filtered by Women\'s products', {
+                          position: 'top-right',
+                          autoClose: 1500,
+                        });
                       }}
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                     >
@@ -157,6 +223,10 @@ const ProductList = () => {
                       onClick={() => {
                         setSelectedCategory("Unisex");
                         setShowFilterDropdown(false);
+                        toast.info('👥 Filtered by Unisex products', {
+                          position: 'top-right',
+                          autoClose: 1500,
+                        });
                       }}
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                     >
@@ -186,6 +256,10 @@ const ProductList = () => {
                       onClick={() => {
                         setSortType("lowToHigh");
                         setShowSortDropdown(false);
+                        toast.info('🔼 Sorted by Price: Low to High', {
+                          position: 'top-right',
+                          autoClose: 1500,
+                        });
                       }}
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                     >
@@ -195,6 +269,10 @@ const ProductList = () => {
                       onClick={() => {
                         setSortType("highToLow");
                         setShowSortDropdown(false);
+                        toast.info('🔽 Sorted by Price: High to Low', {
+                          position: 'top-right',
+                          autoClose: 1500,
+                        });
                       }}
                       className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                     >
@@ -260,6 +338,7 @@ const ProductList = () => {
           ))}
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 };

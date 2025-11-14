@@ -7,7 +7,7 @@ import api from "../../api/Axios";
 const CartDrawer = ({ onClose }) => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedItems, setSelectedItems] = useState(new Set());
+
   const navigate = useNavigate();
 
   // Load cart from backend API
@@ -30,20 +30,19 @@ const CartDrawer = ({ onClose }) => {
             totalPrice: parseFloat(item.price) * item.quantity
           }));
           setCartItems(backendItems);
-          // Reset selected items when cart is reloaded
-          setSelectedItems(new Set());
+
         } catch (error) {
           console.error('Error fetching cart:', error);
           // Fallback to localStorage
           const saved = localStorage.getItem("cartItems");
           setCartItems(saved ? JSON.parse(saved) : []);
-          setSelectedItems(new Set());
+
         }
       } else {
         // Fallback to localStorage for non-authenticated users
         const saved = localStorage.getItem("cartItems");
         setCartItems(saved ? JSON.parse(saved) : []);
-        setSelectedItems(new Set());
+
       }
       setLoading(false);
     };
@@ -109,16 +108,7 @@ const CartDrawer = ({ onClose }) => {
         // Update local state immediately
         const updated = cartItems.filter((_, i) => i !== index);
         setCartItems(updated);
-        // Update selected items indices
-        const newSelected = new Set();
-        selectedItems.forEach(selectedIndex => {
-          if (selectedIndex < index) {
-            newSelected.add(selectedIndex);
-          } else if (selectedIndex > index) {
-            newSelected.add(selectedIndex - 1);
-          }
-        });
-        setSelectedItems(newSelected);
+
         window.dispatchEvent(new CustomEvent("cartUpdated", { detail: { source: 'cartDrawer' } }));
       } catch (error) {
         console.error('Error removing item:', error);
@@ -128,53 +118,23 @@ const CartDrawer = ({ onClose }) => {
       const updated = cartItems.filter((_, i) => i !== index);
       setCartItems(updated);
       localStorage.setItem("cartItems", JSON.stringify(updated));
-      // Update selected items indices
-      const newSelected = new Set();
-      selectedItems.forEach(selectedIndex => {
-        if (selectedIndex < index) {
-          newSelected.add(selectedIndex);
-        } else if (selectedIndex > index) {
-          newSelected.add(selectedIndex - 1);
-        }
-      });
-      setSelectedItems(newSelected);
+
       window.dispatchEvent(new CustomEvent("cartUpdated", { detail: { source: 'cartDrawer' } }));
     }
   };
 
-  // Calculate total for selected items only
-  const totalAmount = cartItems
-    .filter((_, index) => selectedItems.has(index))
-    .reduce((sum, item) => sum + item.totalPrice, 0);
+  // Calculate total for all items
+  const totalAmount = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
     
-  // Toggle item selection
-  const toggleItemSelection = (index) => {
-    const newSelected = new Set(selectedItems);
-    if (newSelected.has(index)) {
-      newSelected.delete(index);
-    } else {
-      newSelected.add(index);
-    }
-    setSelectedItems(newSelected);
-  };
-  
-  // Select all items
-  const selectAllItems = () => {
-    if (selectedItems.size === cartItems.length) {
-      setSelectedItems(new Set());
-    } else {
-      setSelectedItems(new Set(cartItems.map((_, index) => index)));
-    }
-  };
+
 
   const handleCheckout = () => {
-    const selectedCartItems = cartItems.filter((_, index) => selectedItems.has(index));
-    if (selectedCartItems.length === 0) {
-      alert('Please select at least one item to checkout');
+    if (cartItems.length === 0) {
+      alert('Your cart is empty');
       return;
     }
     // Ensure cart items have the correct structure for checkout
-    const checkoutItems = selectedCartItems.map(item => ({
+    const checkoutItems = cartItems.map(item => ({
       ...item,
       cartId: item.id // Map the cart ID correctly
     }));
@@ -213,19 +173,7 @@ const CartDrawer = ({ onClose }) => {
                 <X className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-            {cartItems.length > 0 && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={selectedItems.size === cartItems.length && cartItems.length > 0}
-                  onChange={selectAllItems}
-                  className="w-4 h-4 accent-gray-900"
-                />
-                <span className="text-sm text-gray-600">
-                  Select All ({selectedItems.size}/{cartItems.length})
-                </span>
-              </div>
-            )}
+
           </div>
 
           {/* Cart Items */}
@@ -239,17 +187,8 @@ const CartDrawer = ({ onClose }) => {
               cartItems.map((item, index) => (
                 <div
                   key={index}
-                  className={`relative flex items-center gap-4 mb-4 p-3 border rounded-lg transition-colors ${
-                    selectedItems.has(index) ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                  }`}
+                  className="relative flex items-center gap-4 mb-4 p-3 border rounded-lg border-gray-200"
                 >
-                  {/* Selection checkbox */}
-                  <input
-                    type="checkbox"
-                    checked={selectedItems.has(index)}
-                    onChange={() => toggleItemSelection(index)}
-                    className="w-4 h-4 accent-blue-600 flex-shrink-0"
-                  />
                   {/* Remove button */}
                   <button
                     onClick={() => removeItem(index)}
@@ -293,7 +232,7 @@ const CartDrawer = ({ onClose }) => {
 
                     {/* Price */}
                     <p className="font-semibold text-sm mt-1">
-                      PKR {(item.totalPrice * 280).toLocaleString()}
+                      PKR {item.totalPrice.toLocaleString()}
                     </p>
                   </div>
                 </div>
@@ -306,23 +245,17 @@ const CartDrawer = ({ onClose }) => {
             <div className="border-t p-4 bg-gray-50">
               <div className="flex justify-between items-center mb-2">
                 <span className="font-semibold text-gray-700">
-                  Selected ({selectedItems.size}) Total:
+                  Total:
                 </span>
                 <span className="font-bold text-lg">
-                  PKR {(totalAmount * 280).toLocaleString()}
+                  PKR {totalAmount.toLocaleString()}
                 </span>
               </div>
-              {selectedItems.size === 0 && (
-                <p className="text-sm text-gray-500 mb-4 text-center">
-                  Select items to proceed to checkout
-                </p>
-              )}
               <button
                 onClick={handleCheckout}
-                disabled={selectedItems.size === 0}
-                className="w-full bg-black text-white py-3 font-medium hover:bg-gray-800 transition rounded-md disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="w-full bg-black text-white py-3 font-medium hover:bg-gray-800 transition rounded-md"
               >
-                Proceed to Checkout ({selectedItems.size} items)
+                Proceed to Checkout ({cartItems.length} items)
               </button>
             </div>
           )}

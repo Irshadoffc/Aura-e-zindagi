@@ -25,7 +25,7 @@ export default function CustomersDesktop() {
         customer: customer.name,
         location: `${customer.city}, Pakistan`,
         ordersCount: customer.total_orders,
-        amountSpent: `Rs ${(customer.total_spent * 280).toLocaleString()}.00`,
+        amountSpent: `Rs ${customer.total_spent.toLocaleString()}.00`,
         email: customer.email,
         phone: customer.phone
       }));

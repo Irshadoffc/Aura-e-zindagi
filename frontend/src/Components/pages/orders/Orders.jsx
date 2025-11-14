@@ -32,7 +32,7 @@ export default function Orders() {
         id: order.id.toString(),
         date: new Date(order.created_at).toISOString().split('T')[0],
         customer: order.customer_name,
-        total: `PKR ${(order.total_amount * 280).toLocaleString()}`,
+        total: `PKR ${order.total_amount.toLocaleString()}`,
         payment: order.payment_status === 'pending' ? 'Unpaid' : 'Paid',
         fulfillment: order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1),
         items: `${order.order_items.length} item${order.order_items.length > 1 ? 's' : ''}`,
@@ -209,6 +209,7 @@ export default function Orders() {
                 {[
                   "Date",
                   "Customer",
+                  "Address",
                   "Total",
                   "Payment status",
                   "Order status",
@@ -259,6 +260,9 @@ export default function Orders() {
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
                     {order.customer}
+                  </td>
+                  <td className="px-4 py-2 text-sm text-gray-600 whitespace-nowrap max-w-xs truncate" title={`${order.rawOrder?.customer_address || 'N/A'}, ${order.rawOrder?.customer_city || 'N/A'}`}>
+                    {order.rawOrder?.customer_address ? `${order.rawOrder.customer_address}, ${order.rawOrder.customer_city}` : 'N/A'}
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
                     {order.total}
@@ -336,6 +340,21 @@ export default function Orders() {
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <p className="text-sm text-gray-700">
                 <strong>Customer:</strong> {editingOrder.customer}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Phone:</strong> {editingOrder.rawOrder?.customer_phone || 'N/A'}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Email:</strong> {editingOrder.rawOrder?.customer_email || 'N/A'}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Address:</strong> {editingOrder.rawOrder?.customer_address || 'N/A'}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>City:</strong> {editingOrder.rawOrder?.customer_city || 'N/A'}
+              </p>
+              <p className="text-sm text-gray-700">
+                <strong>Postal Code:</strong> {editingOrder.rawOrder?.customer_postal_code || 'N/A'}
               </p>
               <p className="text-sm text-gray-700">
                 <strong>Date:</strong> {editingOrder.date}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api/Axios";
 import { toast } from 'react-toastify';
 
@@ -48,6 +48,7 @@ function CODForm({ subtotal, shipping, codCharges, onPlaceOrder, loading }) {
 // --------------------- MAIN CHECKOUT PAGE ---------------------
 export default function CheckoutPage() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -134,11 +135,10 @@ export default function CheckoutPage() {
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const subtotalPKR = subtotal * 280;
   const shipping = 500;
   const codCharges = 250;
 
-  const total = subtotalPKR + shipping + codCharges;
+  const total = subtotal + shipping + codCharges;
 
   // Validation functions
   const validateEmail = (email) => {
@@ -232,14 +232,33 @@ export default function CheckoutPage() {
       
       setOrderLoading(false);
       
-      // Clear cart items from local state immediately
-      if (cartItemIds.length > 0) {
-        // Remove only the ordered items
-        const remainingItems = cartItems.filter(item => !cartItemIds.includes(item.cartId || item.id));
-        setCartItems(remainingItems);
-      } else {
-        // Clear all items if no specific IDs
+      // Clear cart items from backend and local storage
+      try {
+        // Clear from backend if user is logged in
+        const user = localStorage.getItem('user');
+        if (user && cartItemIds.length > 0) {
+          // Delete specific cart items from backend
+          await Promise.all(cartItemIds.map(cartId => 
+            api.delete(`/cart/${cartId}`).catch(err => console.log('Cart item already removed:', err))
+          ));
+        }
+        
+        // Clear from local storage
+        if (cartItemIds.length > 0) {
+          // Remove only the ordered items
+          const remainingItems = cartItems.filter(item => !cartItemIds.includes(item.cartId || item.id));
+          setCartItems(remainingItems);
+          localStorage.setItem("cartItems", JSON.stringify(remainingItems));
+        } else {
+          // Clear all items if no specific IDs
+          setCartItems([]);
+          localStorage.removeItem("cartItems");
+        }
+      } catch (error) {
+        console.error('Error clearing cart:', error);
+        // Still clear local state even if backend fails
         setCartItems([]);
+        localStorage.removeItem("cartItems");
       }
       
       toast.success(`🎉 Order placed successfully! Order ID: ${orderId}`);
@@ -247,9 +266,8 @@ export default function CheckoutPage() {
       // Dispatch cart update event to refresh cart count
       window.dispatchEvent(new Event("cartUpdated"));
       
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 3000);
+      // Navigate immediately to home page
+      navigate('/', { replace: true });
       
     } catch (error) {
       console.error('Error placing order:', error);
@@ -379,16 +397,29 @@ export default function CheckoutPage() {
                 <label className="block text-sm font-medium text-gray-600 mt-6 mb-3">
                   Payment Method
                 </label>
-                <div className="border border-gray-200 rounded-xl p-4 bg-blue-50">
-                  <div className="flex items-center">
-                    <div className="w-4 h-4 bg-blue-600 rounded-full mr-3"></div>
-                    <span className="font-medium text-blue-800">💵 Cash on Delivery</span>
+                <div className="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 bg-gray-900 rounded-full mr-3 flex items-center justify-center">
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-900">Cash on Delivery</span>
+                        <p className="text-sm text-gray-600 mt-1">Pay when your order arrives at your doorstep</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 0h4a2 2 0 002-2v-2M7 7h10" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-blue-600 mt-2 ml-7">Pay when your order is delivered to your doorstep</p>
                 </div>
 
                 <div className="mt-6">
-                  <CODForm subtotal={subtotalPKR} shipping={shipping} codCharges={codCharges} onPlaceOrder={() => handlePlaceOrder()} loading={orderLoading} />
+                  <CODForm subtotal={subtotal} shipping={shipping} codCharges={codCharges} onPlaceOrder={() => handlePlaceOrder()} loading={orderLoading} />
                 </div>
               </div>
 
@@ -409,7 +440,7 @@ export default function CheckoutPage() {
                             <p className="text-gray-500 text-xs">{item.selectedSize} x {item.quantity}</p>
                           </div>
                         </div>
-                        <p className="text-gray-800 text-sm">PKR {(item.totalPrice * 280).toLocaleString()}</p>
+                        <p className="text-gray-800 text-sm">PKR {item.totalPrice.toLocaleString()}</p>
                       </div>
                     ))}
                   </div>
@@ -418,7 +449,7 @@ export default function CheckoutPage() {
 
                   <div className="flex justify-between text-sm mb-1">
                     <span>Subtotal</span>
-                    <span>PKR {subtotalPKR.toLocaleString()}</span>
+                    <span>PKR {subtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm mb-1">
                     <span>Shipping</span>

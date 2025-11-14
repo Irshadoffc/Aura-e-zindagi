@@ -144,7 +144,7 @@ export default function Mens() {
                   <h3 className="font-medium text-sm sm:text-base leading-tight">
                     {p.name}
                   </h3>
-                  <p className="text-base sm:text-lg font-bold">${p.price}</p>
+                  <p className="text-base sm:text-lg font-bold">PKR {parseFloat(p.price).toLocaleString()}</p>
                 </div>
 
                 {/* Icons */}

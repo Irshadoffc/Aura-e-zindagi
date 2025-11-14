@@ -26,6 +26,7 @@ import DeskHomePage from './Components/desktop/home/DeskHomePage';
 
 // ✅ Add Product Page (Without Sidebar)
 import AddProduct from './Components/pages/products/AddProduct';
+import EditProduct from './Components/pages/products/EditProduct';
 import SocialMediaToggle from './Components/Socialmedia';
 import Orders from './Components/pages/Orders/Orders';
 import Products from './Components/pages/Products/Products';
@@ -69,6 +70,13 @@ const App = () => {
         <Route path="/add-product" element={
           <AdminRoute>
             <AddProduct />
+          </AdminRoute>
+        } />
+        
+        {/* 🆕 Edit Product Page (Standalone without Sidebar) */}
+        <Route path="/edit-product/:id" element={
+          <AdminRoute>
+            <EditProduct />
           </AdminRoute>
         } />
       </Routes>

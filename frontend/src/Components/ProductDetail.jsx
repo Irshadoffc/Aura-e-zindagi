@@ -27,7 +27,6 @@ const ProductDetail = () => {
 
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedSize, setSelectedSize] = useState("50 ml");
   const [quantity, setQuantity] = useState(1);
   const [descriptionOpen, setDescriptionOpen] = useState(false);
   const [shippingOpen, setShippingOpen] = useState(false);
@@ -39,17 +38,21 @@ const ProductDetail = () => {
   // For tasters selection
   const [selectedTaster, setSelectedTaster] = useState(null);
 
-  // Fetch product with testers if not available from state
+  // Always fetch product to ensure fresh data
   useEffect(() => {
-    if (!product || !product.testers) {
-      fetchProduct();
-    }
+    fetchProduct();
   }, [id]);
 
   const fetchProduct = async () => {
     try {
       const response = await api.get(`/products/${id}`);
-      setProduct(response.data.product);
+      const productData = response.data.product;
+      setProduct(productData);
+      
+      // Update selected size based on available volumes
+      if (productData.volumes && Array.isArray(productData.volumes) && productData.volumes.length > 0) {
+        setSelectedSize(productData.volumes[0]);
+      }
     } catch (error) {
       console.error('Error fetching product:', error);
     } finally {
@@ -81,11 +84,39 @@ const ProductDetail = () => {
       ? product.images
       : [productImage, productImage, productImage, productImage];
 
-  const basePrice = parseFloat(String(product.price).replace(/[^0-9.]/g, '')) || 0;
-  const priceMap = {
-    "50 ml": basePrice,
-    "100 ml": Math.round(basePrice * 1.6),
-  };
+  const basePrice = parseFloat(product.price) || 0;
+  const discountPercentage = product.discount_percentage || 0;
+  const originalPrice = discountPercentage > 0 ? basePrice / (1 - discountPercentage / 100) : basePrice;
+  const displayPrice = basePrice; // This is the actual price after discount
+  
+  // Get available volumes from product data
+  const availableVolumes = product?.volumes && Array.isArray(product.volumes) && product.volumes.length > 0 
+    ? product.volumes 
+    : ["50ml", "100ml"];
+  
+  // Create price map based on available volumes using discounted price as base
+  const priceMap = {};
+  if (availableVolumes.length > 0) {
+    availableVolumes.forEach((volume) => {
+      const volumeNumber = parseInt(volume.replace('ml', ''));
+      // Use stored price (after discount) as base and calculate proportionally
+      // Assuming stored price is for the first volume in the array
+      const baseVolumeNumber = parseInt(availableVolumes[0].replace('ml', ''));
+      const multiplier = volumeNumber / baseVolumeNumber;
+      priceMap[volume] = Math.round(displayPrice * multiplier);
+    });
+  } else {
+    priceMap['default'] = displayPrice;
+  }
+  
+  // Set default selected size to first available volume
+  const [selectedSize, setSelectedSize] = useState(() => {
+    const volumes = product?.volumes && Array.isArray(product.volumes) && product.volumes.length > 0 
+      ? product.volumes 
+      : ["50ml", "100ml"];
+    return volumes[0] || "50ml";
+  });
+  
   const totalPrice = priceMap[selectedSize] * quantity;
 
   const handlePrevImage = () =>
@@ -122,6 +153,11 @@ const ProductDetail = () => {
       
       // Dispatch custom event for cart update
       window.dispatchEvent(new Event("cartUpdated"));
+      
+      // Auto-open cart after toast
+      setTimeout(() => {
+        setShowCartDrawer(true);
+      }, 2200);
     } catch (error) {
       console.error('Error adding to cart:', error);
       toast.error('❌ Failed to add to cart. Please login first.', {
@@ -160,6 +196,11 @@ const ProductDetail = () => {
       
       window.dispatchEvent(new Event("cartUpdated"));
       setQuantity(1);
+      
+      // Auto-open cart after toast (fallback case)
+      setTimeout(() => {
+        setShowCartDrawer(true);
+      }, 2200);
     }
   };
 
@@ -233,6 +274,11 @@ const ProductDetail = () => {
       
       // Dispatch custom event for cart update
       window.dispatchEvent(new Event("cartUpdated"));
+      
+      // Auto-open cart after toast
+      setTimeout(() => {
+        setShowCartDrawer(true);
+      }, 2200);
     } catch (error) {
       console.error('Error adding tester to cart:', error);
       toast.error('❌ Failed to add tester to cart', {
@@ -307,11 +353,27 @@ const ProductDetail = () => {
               </div>
 
               <div className="mb-6">
-                <p className="text-xl font-semibold text-gray-900">
-                  ${totalPrice.toFixed(2)}
-                </p>
+                {discountPercentage > 0 ? (
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-sm text-gray-500 line-through">
+                        PKR {Math.round(originalPrice * quantity).toLocaleString()}
+                      </p>
+                      <span className="bg-red-500 text-white text-xs px-2 py-1 rounded">
+                        {discountPercentage}% OFF
+                      </span>
+                    </div>
+                    <p className="text-xl font-semibold text-green-600">
+                      PKR {totalPrice.toLocaleString()}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xl font-semibold text-gray-900">
+                    PKR {totalPrice.toLocaleString()}
+                  </p>
+                )}
                 <p className="text-sm text-gray-600">
-                  ${priceMap[selectedSize].toFixed(2)} × {quantity}
+                  PKR {priceMap[selectedSize].toLocaleString()} × {quantity}
                 </p>
               </div>
 
@@ -396,7 +458,7 @@ const ProductDetail = () => {
                       />
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-medium text-lg">{taster.name}</span>
-                        <span className="font-semibold text-lg">PKR {(parseFloat(taster.price) * 280).toLocaleString()}</span>
+                        <span className="font-semibold text-lg">PKR {parseFloat(taster.price).toLocaleString()}</span>
                       </div>
                       <span className="text-sm text-gray-500 mb-4">{taster.size || '5 ml'}</span>
 
@@ -444,8 +506,15 @@ const ProductDetail = () => {
                 </button>
                 {descriptionOpen && (
                   <div className="pb-4 text-sm text-gray-600 leading-relaxed">
-                    {product.description || product.longDescription ||
-                      "No description available for this product."}
+                    <div className="mb-3">
+                      {product.description || product.longDescription ||
+                        "No description available for this product."}
+                    </div>
+                    {product.volumes && product.volumes.length > 0 && (
+                      <div className="border-t pt-3">
+                        <strong className="text-gray-800">Available Volumes:</strong> {product.volumes.join(', ')}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

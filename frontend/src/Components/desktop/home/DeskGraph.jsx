@@ -25,7 +25,7 @@ export default function DeskGraph({ tabs = [], activeTab, setActiveTab, analytic
           data: {
             date: new Date(data.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
             orders: data.orders || 0,
-            revenue: ((parseFloat(data.revenue || 0)) * 280).toFixed(0)
+            revenue: (parseFloat(data.revenue || 0)).toFixed(0)
           }
         });
       }
@@ -116,13 +116,25 @@ export default function DeskGraph({ tabs = [], activeTab, setActiveTab, analytic
             {/* Solid Line */}
             <path
               d={
-                activeTab === "sessions"
-                  ? "M0,250 Q50,120 100,140 T200,100 T300,110 T400,80 T500,120 T600,90 T700,90 T800,110"
-                  : activeTab === "sales"
-                  ? "M0,200 Q50,180 100,160 T200,140 T300,150 T400,130 T500,150 T600,120 T700,140 T800,130"
-                  : activeTab === "orders"
-                  ? "M0,220 Q50,200 100,180 T200,160 T300,170 T400,150 T500,170 T600,140 T700,160 T800,150"
-                  : "M0,240 Q50,220 100,200 T200,180 T300,190 T400,170 T500,180 T600,160 T700,170 T800,160"
+                (() => {
+                  const hasData = analyticsData && analyticsData.daily_sales && analyticsData.daily_sales.length > 0;
+                  const hasOrders = hasData && analyticsData.daily_sales.some(s => parseInt(s.orders) > 0);
+                  const hasSales = hasData && analyticsData.daily_sales.some(s => parseFloat(s.revenue) > 0);
+                  
+                  // Show flat line if no data at all
+                  if (!hasData || (!hasOrders && !hasSales)) {
+                    return "M0,250 L800,250";
+                  }
+                  
+                  // Show original curves when there is data
+                  return activeTab === "sessions"
+                    ? "M0,250 Q50,120 100,140 T200,100 T300,110 T400,80 T500,120 T600,90 T700,90 T800,110"
+                    : activeTab === "sales"
+                    ? "M0,200 Q50,180 100,160 T200,140 T300,150 T400,130 T500,150 T600,120 T700,140 T800,130"
+                    : activeTab === "orders"
+                    ? "M0,220 Q50,200 100,180 T200,160 T300,170 T400,150 T500,170 T600,140 T700,160 T800,150"
+                    : "M0,240 Q50,220 100,200 T200,180 T300,190 T400,170 T500,180 T600,160 T700,170 T800,160";
+                })()
               }
               fill="none"
               stroke="#3b82f6"
@@ -131,13 +143,25 @@ export default function DeskGraph({ tabs = [], activeTab, setActiveTab, analytic
             {/* Dashed Line */}
             <path
               d={
-                activeTab === "sessions"
-                  ? "M0,160 Q50,120 100,150 T200,110 T300,130 T400,100 T500,100 T600,120 T700,110 T800,130"
-                  : activeTab === "sales"
-                  ? "M0,140 Q50,150 100,170 T200,150 T300,170 T400,160 T500,180 T600,150 T700,170 T800,160"
-                  : activeTab === "orders"
-                  ? "M0,180 Q50,190 100,200 T200,180 T300,200 T400,190 T500,200 T600,170 T700,190 T800,180"
-                  : "M0,200 Q50,210 100,220 T200,200 T300,210 T400,200 T500,210 T600,190 T700,200 T800,190"
+                (() => {
+                  const hasData = analyticsData && analyticsData.daily_sales && analyticsData.daily_sales.length > 0;
+                  const hasOrders = hasData && analyticsData.daily_sales.some(s => parseInt(s.orders) > 0);
+                  const hasSales = hasData && analyticsData.daily_sales.some(s => parseFloat(s.revenue) > 0);
+                  
+                  // Show flat line if no data at all
+                  if (!hasData || (!hasOrders && !hasSales)) {
+                    return "M0,250 L800,250";
+                  }
+                  
+                  // Show original curves when there is data
+                  return activeTab === "sessions"
+                    ? "M0,160 Q50,120 100,150 T200,110 T300,130 T400,100 T500,100 T600,120 T700,110 T800,130"
+                    : activeTab === "sales"
+                    ? "M0,140 Q50,150 100,170 T200,150 T300,170 T400,160 T500,180 T600,150 T700,170 T800,160"
+                    : activeTab === "orders"
+                    ? "M0,180 Q50,190 100,200 T200,180 T300,200 T400,190 T500,200 T600,170 T700,190 T800,180"
+                    : "M0,200 Q50,210 100,220 T200,200 T300,210 T400,200 T500,210 T600,190 T700,200 T800,190";
+                })()
               }
               fill="none"
               stroke="#3b82f6"
@@ -145,31 +169,7 @@ export default function DeskGraph({ tabs = [], activeTab, setActiveTab, analytic
               strokeDasharray="4 4"
             />
             
-            {/* Hover Dots */}
-            {tooltip.show && (
-              <>
-                <circle
-                  cx={tooltip.x}
-                  cy={activeTab === "sessions" ? 120 + Math.sin(tooltip.x / 100) * 30 :
-                      activeTab === "sales" ? 140 + Math.sin(tooltip.x / 80) * 20 :
-                      160 + Math.sin(tooltip.x / 90) * 25}
-                  r="4"
-                  fill="#3b82f6"
-                  stroke="white"
-                  strokeWidth="2"
-                />
-                <circle
-                  cx={tooltip.x}
-                  cy={activeTab === "sessions" ? 130 + Math.sin(tooltip.x / 120) * 25 :
-                      activeTab === "sales" ? 160 + Math.sin(tooltip.x / 70) * 15 :
-                      190 + Math.sin(tooltip.x / 85) * 20}
-                  r="4"
-                  fill="#3b82f6"
-                  stroke="white"
-                  strokeWidth="2"
-                />
-              </>
-            )}
+
           </svg>
         </div>
 

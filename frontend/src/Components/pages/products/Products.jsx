@@ -4,8 +4,14 @@ import {
   Search,
   Filter,
   ArrowUpDown,
+  Edit,
+  Trash2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import api from "../../../api/Axios";
 
 export default function Products() {
@@ -25,8 +31,15 @@ export default function Products() {
 
   const fetchProducts = async () => {
     try {
-      const response = await api.get('/products?t=' + Date.now());
+      const response = await api.get('/products?show_all=true&t=' + Date.now());
       console.log('Products data:', response.data.products);
+      console.log('First product full data:', response.data.products[0] || 'No products');
+      console.log('Brand field check:', response.data.products[0] ? {
+        brand_name: response.data.products[0].brand_name,
+        brand: response.data.products[0].brand,
+        stock_quantity: response.data.products[0].stock_quantity,
+        minimum_stock: response.data.products[0].minimum_stock
+      } : 'No products');
       setProducts(response.data.products || []);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -54,6 +67,89 @@ export default function Products() {
     if (field === "Status") return ["All", ...new Set(products.map((p) => p.status))];
     if (field === "Category") return ["All", ...new Set(products.map((p) => p.category))];
     return ["All"];
+  };
+
+  const handleDelete = async (productId, productName) => {
+    // Show confirmation toast
+    toast.warn(
+      <div>
+        <p>Delete "{productName}"?</p>
+        <div className="mt-2 flex gap-2">
+          <button
+            onClick={async () => {
+              toast.dismiss();
+              try {
+                await api.delete(`/products/${productId}`);
+                setProducts(products.filter(p => p.id !== productId));
+                toast.success('✅ Product deleted successfully!');
+              } catch (error) {
+                console.error('Error deleting product:', error);
+                toast.error('❌ Failed to delete product. Please try again.');
+              }
+            }}
+            className="bg-red-500 text-white px-3 py-1 rounded text-sm"
+          >
+            Delete
+          </button>
+          <button
+            onClick={() => toast.dismiss()}
+            className="bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>,
+      {
+        position: 'top-center',
+        autoClose: false,
+        closeOnClick: false,
+        draggable: false,
+      }
+    );
+  };
+
+  const handleToggleVisibility = async (productId, currentStatus) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const action = newStatus === 'active' ? 'show' : 'hide';
+    
+    // Show confirmation toast
+    toast.warn(
+      <div>
+        <p>{action === 'show' ? '👁️ Show' : '🙈 Hide'} this product?</p>
+        <div className="mt-2 flex gap-2">
+          <button
+            onClick={async () => {
+              toast.dismiss();
+              try {
+                await api.put(`/products/${productId}`, { status: newStatus });
+                setProducts(products.map(p => 
+                  p.id === productId ? { ...p, status: newStatus } : p
+                ));
+                toast.success(`✅ Product ${action === 'show' ? 'shown' : 'hidden'} successfully!`);
+              } catch (error) {
+                console.error('Error updating product visibility:', error);
+                toast.error('❌ Failed to update product visibility. Please try again.');
+              }
+            }}
+            className={`${action === 'show' ? 'bg-green-500' : 'bg-yellow-500'} text-white px-3 py-1 rounded text-sm`}
+          >
+            {action === 'show' ? 'Show' : 'Hide'}
+          </button>
+          <button
+            onClick={() => toast.dismiss()}
+            className="bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>,
+      {
+        position: 'top-center',
+        autoClose: false,
+        closeOnClick: false,
+        draggable: false,
+      }
+    );
   };
 
   return (
@@ -172,7 +268,8 @@ export default function Products() {
                 <th className="p-3 border-r border-gray-200">Price</th>
                 <th className="p-3 border-r border-gray-200">Stock</th>
                 <th className="p-3 border-r border-gray-200">Status</th>
-                <th className="p-3">Category</th>
+                <th className="p-3 border-r border-gray-200">Category</th>
+                <th className="p-3">Actions</th>
               </tr>
             </thead>
 
@@ -200,17 +297,53 @@ export default function Products() {
                     <span className="text-sm sm:text-base">{p.name}</span>
                   </td>
                   <td className="p-3 border-r border-gray-200">{p.brand_name}</td>
-                  <td className="p-3 border-r border-gray-200">${p.price}</td>
-                  <td className="p-3 border-r border-gray-200">{p.stock_quantity || 'N/A'}</td>
+                  <td className="p-3 border-r border-gray-200">PKR {parseFloat(p.price).toLocaleString()}</td>
                   <td className="p-3 border-r border-gray-200">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      (p.stock_quantity === 0 || p.stock_quantity === '0') ? 'bg-red-100 text-red-700' :
-                      (p.status || 'active') === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    <div className="flex flex-col">
+                      <span className="font-medium">{p.stock_quantity || 0}</span>
+                      <span className="text-xs text-gray-500">Min: {p.minimum_stock || 'N/A'}</span>
+                    </div>
+                  </td>
+                  <td className="p-3 border-r border-gray-200">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      p.stock_status === 'out_of_stock' ? 'bg-red-100 text-red-700' :
+                      p.stock_status === 'low_stock' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-green-100 text-green-700'
                     }`}>
-                      {(p.stock_quantity === 0 || p.stock_quantity === '0') ? 'inactive' : (p.status || 'active')}
+                      {p.stock_status === 'out_of_stock' ? 'Out of Stock' :
+                       p.stock_status === 'low_stock' ? 'Low Stock' : 'In Stock'}
                     </span>
                   </td>
-                  <td className="p-3">{p.category}</td>
+                  <td className="p-3 border-r border-gray-200">{p.category}</td>
+                  <td className="p-3">
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => navigate(`/edit-product/${p.id}`)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition"
+                        title="Edit Product"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleToggleVisibility(p.id, p.status)}
+                        className={`p-2 rounded transition ${
+                          p.status === 'active' 
+                            ? 'text-green-600 hover:bg-green-50' 
+                            : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                        title={p.status === 'active' ? 'Hide Product' : 'Show Product'}
+                      >
+                        {p.status === 'active' ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p.id, p.name)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded transition"
+                        title="Delete Product"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               )) : (
                 <tr>
@@ -223,6 +356,7 @@ export default function Products() {
           </table>
         )}
       </div>
+      <ToastContainer />
     </div>
   );
 }

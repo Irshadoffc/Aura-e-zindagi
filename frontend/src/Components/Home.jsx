@@ -118,10 +118,10 @@ export default function HomePage() {
                 <div className="p-4">
                   <h3 className="font-medium text-sm mb-2">{p.name}</h3>
                   <div className="flex items-center gap-2">
-                    <div className="text-lg font-semibold">Rs.{(parseFloat(p.price) * 280).toFixed(0)}</div>
+                    <div className="text-lg font-semibold">PKR {parseFloat(p.price).toLocaleString()}</div>
                     {p.discount_percentage > 0 && (
                       <div className="text-sm text-gray-400 line-through">
-                        Rs.{(parseFloat(p.original_price || p.price) * 280).toFixed(0)}
+                        PKR {parseFloat(p.original_price || p.price).toLocaleString()}
                       </div>
                     )}
                   </div>

@@ -72,6 +72,15 @@ class OrderController extends Controller
             ];
         });
 
+        // Reduce stock quantities
+        foreach ($cartItems as $item) {
+            if ($item->product) {
+                $product = $item->product;
+                $newStock = max(0, $product->stock_quantity - $item->quantity);
+                $product->update(['stock_quantity' => $newStock]);
+            }
+        }
+
         // Create order
         $order = Order::create([
             'user_id' => $request->user()->id,
@@ -104,6 +113,9 @@ class OrderController extends Controller
                 'total_orders' => ($existingCustomer->total_orders ?? 0) + 1
             ]
         );
+
+        // Clear product cache after stock update
+        \Cache::forget('products.all');
 
         // Clear only the specific cart items that were ordered
         if ($request->has('cart_item_ids') && !empty($request->cart_item_ids)) {
